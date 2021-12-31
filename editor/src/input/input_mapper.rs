@@ -4,6 +4,7 @@ use super::{
 	keyboard::{Key, KeyStates, NUMBER_OF_KEYS},
 	InputPreprocessor,
 };
+use crate::document::Clipboard::*;
 use crate::message_prelude::*;
 use crate::tool::ToolType;
 
@@ -133,9 +134,7 @@ impl Default for Mapping {
 		// it as an available action in the respective message handler file (such as the bottom of `document_message_handler.rs`)
 		let mappings = mapping![
 			// Higher priority than entries in sections below
-			entry! {action=DocumentsMessage::Paste, key_down=KeyV, modifiers=[KeyControl]},
-			entry! {action=MovementMessage::EnableSnapping, key_down=KeyShift},
-			entry! {action=MovementMessage::DisableSnapping, key_up=KeyShift},
+			entry! {action=DocumentsMessage::Paste(User), key_down=KeyV, modifiers=[KeyControl]},
 			// Transform layers
 			entry! {action=TransformLayerMessage::ApplyOperation, key_down=KeyEnter},
 			entry! {action=TransformLayerMessage::ApplyOperation, key_down=Lmb},
@@ -154,6 +153,12 @@ impl Default for Mapping {
 			entry! {action=SelectMessage::DragStop, key_up=Lmb},
 			entry! {action=SelectMessage::Abort, key_down=Rmb},
 			entry! {action=SelectMessage::Abort, key_down=KeyEscape},
+			// Navigate
+			entry! {action=NavigateMessage::MouseMove{snap_angle: KeyControl}, message=InputMapperMessage::PointerMove},
+			entry! {action=NavigateMessage::RotateCanvasBegin, key_down=Rmb},
+			entry! {action=NavigateMessage::ZoomCanvasBegin, key_down=Lmb},
+			entry! {action=NavigateMessage::TransformCanvasEnd, key_up=Rmb},
+			entry! {action=NavigateMessage::TransformCanvasEnd, key_up=Lmb},
 			// Eyedropper
 			entry! {action=EyedropperMessage::LeftMouseDown, key_down=Lmb},
 			entry! {action=EyedropperMessage::RightMouseDown, key_down=Rmb},
@@ -193,6 +198,7 @@ impl Default for Mapping {
 			entry! {action=FillMessage::RightMouseDown, key_down=Rmb},
 			// Tool Actions
 			entry! {action=ToolMessage::ActivateTool(ToolType::Select), key_down=KeyV},
+			entry! {action=ToolMessage::ActivateTool(ToolType::Navigate), key_down=KeyZ},
 			entry! {action=ToolMessage::ActivateTool(ToolType::Eyedropper), key_down=KeyI},
 			entry! {action=ToolMessage::ActivateTool(ToolType::Fill), key_down=KeyF},
 			entry! {action=ToolMessage::ActivateTool(ToolType::Path), key_down=KeyA},
@@ -207,7 +213,7 @@ impl Default for Mapping {
 			// Editor Actions
 			entry! {action=FrontendMessage::OpenDocumentBrowse, key_down=KeyO, modifiers=[KeyControl]},
 			// Document Actions
-			entry! {action=DocumentsMessage::Paste, key_down=KeyV, modifiers=[KeyControl]},
+			entry! {action=DocumentsMessage::Paste(User), key_down=KeyV, modifiers=[KeyControl]},
 			entry! {action=DocumentMessage::Redo, key_down=KeyZ, modifiers=[KeyControl, KeyShift]},
 			entry! {action=DocumentMessage::Undo, key_down=KeyZ, modifiers=[KeyControl]},
 			entry! {action=DocumentMessage::DeselectAllLayers, key_down=KeyA, modifiers=[KeyControl, KeyAlt]},
@@ -219,16 +225,15 @@ impl Default for Mapping {
 			entry! {action=DocumentMessage::ExportDocument, key_down=KeyE, modifiers=[KeyControl]},
 			entry! {action=DocumentMessage::SaveDocument, key_down=KeyS, modifiers=[KeyControl]},
 			entry! {action=DocumentMessage::SaveDocument, key_down=KeyS, modifiers=[KeyControl, KeyShift]},
+			entry! {action=DocumentMessage::DebugPrintDocument, key_down=Key9},
 			// Initiate Transform Layers
 			entry! {action=TransformLayerMessage::BeginGrab, key_down=KeyG},
 			entry! {action=TransformLayerMessage::BeginRotate, key_down=KeyR},
 			entry! {action=TransformLayerMessage::BeginScale, key_down=KeyS},
 			// Document movement
-			entry! {action=MovementMessage::MouseMove, message=InputMapperMessage::PointerMove},
-			entry! {action=MovementMessage::RotateCanvasBegin{snap:false}, key_down=Mmb, modifiers=[KeyControl]},
-			entry! {action=MovementMessage::RotateCanvasBegin{snap:true}, key_down=Mmb, modifiers=[KeyControl, KeyShift]},
+			entry! {action=MovementMessage::MouseMove{snap_angle: KeyShift}, message=InputMapperMessage::PointerMove},
+			entry! {action=MovementMessage::RotateCanvasBegin, key_down=Mmb, modifiers=[KeyControl]},
 			entry! {action=MovementMessage::ZoomCanvasBegin, key_down=Mmb, modifiers=[KeyShift]},
-			entry! {action=MovementMessage::ZoomCanvasToFitAll, key_down=Key0, modifiers=[KeyControl]},
 			entry! {action=MovementMessage::TranslateCanvasBegin, key_down=Mmb},
 			entry! {action=MovementMessage::TransformCanvasEnd, key_up=Mmb},
 			entry! {action=MovementMessage::TranslateCanvasBegin, key_down=Lmb, modifiers=[KeySpace]},
@@ -238,6 +243,7 @@ impl Default for Mapping {
 			entry! {action=MovementMessage::DecreaseCanvasZoom, key_down=KeyMinus, modifiers=[KeyControl]},
 			entry! {action=MovementMessage::SetCanvasZoom(1.), key_down=Key1, modifiers=[KeyControl]},
 			entry! {action=MovementMessage::SetCanvasZoom(2.), key_down=Key2, modifiers=[KeyControl]},
+			entry! {action=MovementMessage::ZoomCanvasToFitAll, key_down=Key0, modifiers=[KeyControl]},
 			entry! {action=MovementMessage::WheelCanvasZoom, message=InputMapperMessage::MouseScroll, modifiers=[KeyControl]},
 			entry! {action=MovementMessage::WheelCanvasTranslate{use_y_as_x: true}, message=InputMapperMessage::MouseScroll, modifiers=[KeyShift]},
 			entry! {action=MovementMessage::WheelCanvasTranslate{use_y_as_x: false}, message=InputMapperMessage::MouseScroll},
@@ -252,7 +258,8 @@ impl Default for Mapping {
 			entry! {action=DocumentsMessage::CloseAllDocumentsWithConfirmation, key_down=KeyW, modifiers=[KeyControl, KeyAlt]},
 			entry! {action=DocumentsMessage::CloseActiveDocumentWithConfirmation, key_down=KeyW, modifiers=[KeyControl]},
 			entry! {action=DocumentMessage::DuplicateSelectedLayers, key_down=KeyD, modifiers=[KeyControl]},
-			entry! {action=DocumentsMessage::Copy, key_down=KeyC, modifiers=[KeyControl]},
+			entry! {action=DocumentsMessage::Copy(User), key_down=KeyC, modifiers=[KeyControl]},
+			entry! {action=DocumentsMessage::Cut(User), key_down=KeyX, modifiers=[KeyControl]},
 			entry! {action=DocumentMessage::GroupSelectedLayers, key_down=KeyG, modifiers=[KeyControl]},
 			// Nudging
 			entry! {action=DocumentMessage::NudgeSelectedLayers(-SHIFT_NUDGE_AMOUNT, -SHIFT_NUDGE_AMOUNT), key_down=KeyArrowUp, modifiers=[KeyShift, KeyArrowLeft]},

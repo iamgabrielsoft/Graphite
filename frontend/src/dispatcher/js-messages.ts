@@ -126,8 +126,12 @@ export class DisplayConfirmationToCloseAllDocuments extends JsMessage {}
 
 export class DisplayAboutGraphiteDialog extends JsMessage {}
 
-export class UpdateCanvas extends JsMessage {
-	readonly document!: string;
+export class UpdateArtwork extends JsMessage {
+	readonly svg!: string;
+}
+
+export class UpdateOverlays extends JsMessage {
+	readonly svg!: string;
 }
 
 const TupleToVec2 = Transform(({ value }) => ({ x: value[0], y: value[1] }));
@@ -280,13 +284,13 @@ export class LayerPanelEntry {
 	@Transform(({ value }) => new BigUint64Array(value))
 	path!: BigUint64Array;
 
-	@Type(() => LayerData)
-	layer_data!: LayerData;
+	@Type(() => LayerMetadata)
+	layer_metadata!: LayerMetadata;
 
 	thumbnail!: string;
 }
 
-export class LayerData {
+export class LayerMetadata {
 	expanded!: boolean;
 
 	selected!: boolean;
@@ -328,7 +332,8 @@ type JSMessageFactory = (data: any, wasm: WasmInstance, instance: RustEditorInst
 type MessageMaker = typeof JsMessage | JSMessageFactory;
 
 export const messageConstructors: Record<string, MessageMaker> = {
-	UpdateCanvas,
+	UpdateArtwork,
+	UpdateOverlays,
 	UpdateScrollbars,
 	UpdateRulers,
 	ExportDocument,

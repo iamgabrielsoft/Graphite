@@ -19,12 +19,6 @@ pub struct GlobalMessageHandler {
 	output_messages: Vec<FrontendMessage>,
 }
 
-impl GlobalMessageHandler {
-	pub fn new() -> Self {
-		Self::default()
-	}
-}
-
 impl MessageHandler<GlobalMessage, ()> for GlobalMessageHandler {
 	fn process_action(&mut self, message: GlobalMessage, _data: (), responses: &mut VecDeque<Message>) {
 		use GlobalMessage::*;
