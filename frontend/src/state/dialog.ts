@@ -1,6 +1,6 @@
 import { reactive, readonly } from "vue";
 
-import { DisplayDialogAboutGraphite } from "@/dispatcher/js-messages";
+import { DisplayDialogAboutGraphite, DisplayDialogNewFile } from "@/dispatcher/js-messages";
 import { EditorState } from "@/state/wasm-loader";
 import { IconName } from "@/utilities/icons";
 import { stripIndents } from "@/utilities/strip-indents";
@@ -60,7 +60,7 @@ export function createDialogState(editor: EditorState) {
 		createDialog("Warning", "Coming soon", details, buttons);
 	};
 
-	const onAboutHandler = (): void => {
+	const displayAboutGraphite = (): void => {
 		const date = new Date(process.env.VUE_APP_COMMIT_DATE || "");
 		const dateString = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
 		const timeString = `${String(date.getHours()).padStart(2, "0")}:${String(date.getMinutes()).padStart(2, "0")}`;
@@ -105,8 +105,24 @@ export function createDialogState(editor: EditorState) {
 		createDialog("GraphiteLogo", "Graphite", details, buttons);
 	};
 
+	const displayNewFile = (): void => {
+		const details = stripIndents`
+			Set dimensions or infinite canvas.`;
+
+		const buttons: TextButtonWidget[] = [
+			{
+				kind: "TextButton",
+				callback: (): unknown => window.open("https://www.graphite.design", "_blank"),
+				props: { label: "Create", emphasized: false, minWidth: 0 },
+			},
+		];
+
+		createDialog("GraphiteLogo", "New file", details, buttons);
+	};
+
 	// Run on creation
-	editor.dispatcher.subscribeJsMessage(DisplayDialogAboutGraphite, () => onAboutHandler());
+	editor.dispatcher.subscribeJsMessage(DisplayDialogAboutGraphite, () => displayAboutGraphite());
+	editor.dispatcher.subscribeJsMessage(DisplayDialogNewFile, () => displayNewFile());
 
 	return {
 		state: readonly(state),

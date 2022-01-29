@@ -89,10 +89,5 @@ export default defineComponent({
 		TextLabel,
 		TextButton,
 	},
-	methods: {
-		dismiss() {
-			this.dialog.dismissDialog();
-		},
-	},
 });
 </script>

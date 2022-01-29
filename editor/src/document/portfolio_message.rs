@@ -5,6 +5,7 @@ use graphene::LayerId;
 
 use serde::{Deserialize, Serialize};
 
+/// The portfolio is the collection of open documents in the Graphite editor. These messages pertain to the handling of multiple documents and to systems that are shared across documents.
 #[remain::sorted]
 #[impl_message(Message, Portfolio)]
 #[derive(PartialEq, Clone, Debug, Serialize, Deserialize)]
@@ -57,6 +58,7 @@ pub enum PortfolioMessage {
 	},
 	PrevDocument,
 	RequestAboutGraphiteDialog,
+	RequestNewFileDialog,
 	SelectDocument {
 		document_id: u64,
 	},

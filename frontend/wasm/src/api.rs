@@ -223,6 +223,12 @@ impl JsEditorHandle {
 		self.dispatch(message);
 	}
 
+	#[wasm_bindgen]
+	pub fn request_new_file_dialog(&self) {
+		let message = PortfolioMessage::RequestNewFileDialog;
+		self.dispatch(message);
+	}
+
 	/// Send new bounds when document panel viewports get resized or moved within the editor
 	/// [left, top, right, bottom]...
 	#[wasm_bindgen]

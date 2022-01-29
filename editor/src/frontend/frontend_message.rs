@@ -16,6 +16,7 @@ pub enum FrontendMessage {
 	DisplayConfirmationToCloseDocument { document_id: u64 },
 	DisplayDialogAboutGraphite,
 	DisplayDialogError { title: String, description: String },
+	DisplayDialogNewFile,
 	DisplayDialogPanic { panic_info: String, title: String, description: String },
 	DisplayDocumentLayerTreeStructure { data_buffer: RawBuffer },
 

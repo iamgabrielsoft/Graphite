@@ -167,6 +167,8 @@ export class DisplayConfirmationToCloseAllDocuments extends JsMessage {}
 
 export class DisplayDialogAboutGraphite extends JsMessage {}
 
+export class DisplayDialogNewFile extends JsMessage {}
+
 export class UpdateDocumentArtwork extends JsMessage {
 	readonly svg!: string;
 }
@@ -381,29 +383,35 @@ type JSMessageFactory = (data: any, wasm: WasmInstance, instance: RustEditorInst
 type MessageMaker = typeof JsMessage | JSMessageFactory;
 
 export const messageConstructors: Record<string, MessageMaker> = {
-	UpdateDocumentArtwork,
-	UpdateDocumentOverlays,
-	UpdateDocumentScrollbars,
-	UpdateDocumentRulers,
+	// Display prefix: make the frontend show something, like a dialog
+	DisplayConfirmationToCloseAllDocuments,
+	DisplayConfirmationToCloseDocument,
+	DisplayDialogAboutGraphite,
+	DisplayDialogError,
+	DisplayDialogNewFile,
+	DisplayDialogPanic,
+	DisplayDocumentLayerTreeStructure: newDisplayDocumentLayerTreeStructure,
+
+	// Trigger prefix: cause a browser API to do something
 	TriggerFileDownload,
 	TriggerFileUpload,
-	DisplayDocumentLayerTreeStructure: newDisplayDocumentLayerTreeStructure,
-	UpdateDocumentLayer,
-	UpdateActiveTool,
-	UpdateActiveDocument,
-	UpdateOpenDocumentsList,
-	UpdateInputHints,
-	UpdateWorkingColors,
-	UpdateCanvasZoom,
-	UpdateCanvasRotation,
-	UpdateMouseCursor,
-	DisplayDialogError,
-	DisplayDialogPanic,
-	DisplayConfirmationToCloseDocument,
-	DisplayConfirmationToCloseAllDocuments,
-	DisplayDialogAboutGraphite,
-	TriggerIndexedDbWriteDocument,
 	TriggerIndexedDbRemoveDocument,
+	TriggerIndexedDbWriteDocument,
+
+	// Update prefix: give the frontend a new value or state for it to use
+	UpdateActiveDocument,
+	UpdateActiveTool,
+	UpdateCanvasRotation,
+	UpdateCanvasZoom,
 	UpdateDocumentArtboards,
+	UpdateDocumentArtwork,
+	UpdateDocumentLayer,
+	UpdateDocumentOverlays,
+	UpdateDocumentRulers,
+	UpdateDocumentScrollbars,
+	UpdateInputHints,
+	UpdateMouseCursor,
+	UpdateOpenDocumentsList,
+	UpdateWorkingColors,
 } as const;
 export type JsMessageType = keyof typeof messageConstructors;

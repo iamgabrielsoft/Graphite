@@ -356,6 +356,9 @@ impl MessageHandler<PortfolioMessage, &InputPreprocessorMessageHandler> for Port
 			RequestAboutGraphiteDialog => {
 				responses.push_back(FrontendMessage::DisplayDialogAboutGraphite.into());
 			}
+			RequestNewFileDialog => {
+				responses.push_back(FrontendMessage::DisplayDialogNewFile.into());
+			}
 			SelectDocument { document_id } => {
 				let active_document = self.active_document();
 				if !active_document.is_saved() {
