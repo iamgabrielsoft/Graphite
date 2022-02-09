@@ -1,61 +1,91 @@
 <template>
-	<LayoutCol :class="'layer-tree-panel'">
-		<LayoutRow :class="'options-bar'">
-			<DropdownInput v-model:selectedIndex="blendModeSelectedIndex" @update:selectedIndex="setLayerBlendMode" :menuEntries="blendModeEntries" :disabled="blendModeDropdownDisabled" />
+	<LayoutCol class="layer-tree-panel">
+		<LayoutRow class="options-bar">
+			<DropdownInput
+				v-model:selectedIndex="blendModeSelectedIndex"
+				@update:selectedIndex="(newSelectedIndex: number) => setLayerBlendMode(newSelectedIndex)"
+				:menuEntries="blendModeEntries"
+				:disabled="blendModeDropdownDisabled"
+			/>
 
-			<Separator :type="SeparatorType.Related" />
+			<Separator :type="'Related'" />
 
-			<NumberInput v-model:value="opacity" @update:value="setLayerOpacity" :min="0" :max="100" :unit="`%`" :displayDecimalPlaces="2" :label="'Opacity'" :disabled="opacityNumberInputDisabled" />
+			<NumberInput
+				v-model:value="opacity"
+				@update:value="(newOpacity: number) => setLayerOpacity(newOpacity)"
+				:min="0"
+				:max="100"
+				:unit="'%'"
+				:displayDecimalPlaces="2"
+				:label="'Opacity'"
+				:disabled="opacityNumberInputDisabled"
+			/>
 
-			<Separator :type="SeparatorType.Related" />
+			<Separator :type="'Related'" />
 
 			<PopoverButton>
 				<h3>Compositing Options</h3>
 				<p>The contents of this popover menu are coming soon</p>
 			</PopoverButton>
 		</LayoutRow>
-		<LayoutRow :class="'layer-tree scrollable-y'">
-			<LayoutCol :class="'list'" ref="layerTreeList" @click="deselectAllLayers" @dragover="updateLine($event)" @dragend="drop()">
-				<div class="layer-row" v-for="(layer, index) in layers" :key="layer.path">
-					<div class="layer-visibility">
+		<LayoutRow class="layer-tree" :scrollableY="true">
+			<LayoutCol class="list" ref="layerTreeList" @click="() => deselectAllLayers()" @dragover="(e) => draggable && updateInsertLine(e)" @dragend="draggable && drop()">
+				<LayoutRow
+					class="layer-row"
+					v-for="(listing, index) in layers"
+					:key="String(listing.entry.path.slice(-1))"
+					:class="{ 'insert-folder': draggingData && draggingData.highlightFolder && draggingData.insertFolder === listing.entry.path }"
+				>
+					<LayoutRow class="visibility">
 						<IconButton
-							:action="(e) => (toggleLayerVisibility(layer.path), e.stopPropagation())"
-							:icon="layer.visible ? 'EyeVisible' : 'EyeHidden'"
+							:action="(e) => (toggleLayerVisibility(listing.entry.path), e && e.stopPropagation())"
 							:size="24"
-							:title="layer.visible ? 'Visible' : 'Hidden'"
+							:icon="listing.entry.visible ? 'EyeVisible' : 'EyeHidden'"
+							:title="listing.entry.visible ? 'Visible' : 'Hidden'"
 						/>
-					</div>
+					</LayoutRow>
+
+					<div class="indent" :style="{ marginLeft: layerIndent(listing.entry) }"></div>
+
 					<button
-						v-if="layer.layer_type === LayerTypeOptions.Folder"
-						class="node-connector"
-						:class="{ expanded: layer.layer_metadata.expanded }"
-						@click.stop="handleNodeConnectorClick(layer.path)"
+						v-if="listing.entry.layer_type === 'Folder'"
+						class="expand-arrow"
+						:class="{ expanded: listing.entry.layer_metadata.expanded }"
+						@click.stop="handleExpandArrowClick(listing.entry.path)"
 					></button>
-					<div v-else class="node-connector-missing"></div>
-					<div
+					<LayoutRow
 						class="layer"
-						:class="{ selected: layer.layer_metadata.selected }"
-						:style="{ marginLeft: layerIndent(layer) }"
-						@click.shift.exact.stop="selectLayer(layer, false, true)"
-						@click.shift.ctrl.exact.stop="selectLayer(layer, true, true)"
-						@click.ctrl.exact.stop="selectLayer(layer, true, false)"
-						@click.exact.stop="selectLayer(layer, false, false)"
+						:class="{ selected: listing.entry.layer_metadata.selected }"
+						@click.shift.exact.stop="!listing.editingName && selectLayer(listing.entry, false, true)"
+						@click.shift.ctrl.exact.stop="!listing.editingName && selectLayer(listing.entry, true, true)"
+						@click.ctrl.exact.stop="!listing.editingName && selectLayer(listing.entry, true, false)"
+						@click.exact.stop="!listing.editingName && selectLayer(listing.entry, false, false)"
 						:data-index="index"
-						draggable="true"
-						@dragstart="dragStart($event, layer)"
+						:draggable="draggable"
+						@dragstart="(e) => draggable && dragStart(e, listing.entry)"
+						:title="`${listing.entry.name}\n${devMode ? 'Layer Path: ' + listing.entry.path.join(' / ') : ''}`"
 					>
-						<div class="layer-thumbnail" v-html="layer.thumbnail"></div>
-						<div class="layer-type-icon">
-							<IconLabel v-if="layer.layer_type === LayerTypeOptions.Folder" :icon="'NodeTypeFolder'" title="Folder" />
+						<LayoutRow class="layer-type-icon">
+							<IconLabel v-if="listing.entry.layer_type === 'Folder'" :icon="'NodeTypeFolder'" title="Folder" />
 							<IconLabel v-else :icon="'NodeTypePath'" title="Path" />
-						</div>
-						<div class="layer-name">
-							<span>{{ layer.name }}</span>
-						</div>
-					</div>
-					<!-- <div class="glue" :style="{ marginLeft: layerIndent(layer) }"></div> -->
-				</div>
+						</LayoutRow>
+						<LayoutRow class="layer-name" @dblclick="onEditLayerName(listing)">
+							<input
+								type="text"
+								:value="listing.entry.name"
+								:placeholder="listing.entry.layer_type"
+								:disabled="!listing.editingName"
+								@change="(e) => onEditLayerNameChange(listing, e.target)"
+								@blur="onEditLayerNameDeselect(listing)"
+								@keydown.enter="(e) => onEditLayerNameChange(listing, e.target)"
+								@keydown.escape="onEditLayerNameDeselect(listing)"
+							/>
+						</LayoutRow>
+						<div class="thumbnail" v-html="listing.entry.thumbnail"></div>
+					</LayoutRow>
+				</LayoutRow>
 			</LayoutCol>
+			<div class="insert-mark" v-if="draggingData && !draggingData.highlightFolder" :style="{ left: markIndent(draggingData.insertFolder), top: markTopOffset(draggingData.markerHeight) }"></div>
 		</LayoutRow>
 	</LayoutCol>
 </template>
@@ -81,78 +111,136 @@
 	}
 
 	.layer-tree {
+		// Crop away the 1px border below the bottom layer entry when it uses the full space of this panel
+		margin-bottom: -1px;
+		position: relative;
+
 		.layer-row {
-			display: flex;
-			height: 36px;
-			align-items: center;
 			flex: 0 0 auto;
+			align-items: center;
 			position: relative;
+			height: 36px;
+			margin: 0 4px;
+			border-bottom: 1px solid var(--color-4-dimgray);
 
-			& + .layer-row,
-			& + .insert-mark + .layer-row {
-				margin-top: 2px;
+			.visibility {
+				flex: 0 0 auto;
+				height: 100%;
+				align-items: center;
+
+				.icon-button {
+					height: 100%;
+					width: calc(24px + 2 * 4px);
+				}
 			}
 
-			.layer-visibility {
-				flex: 0 0 auto;
-				margin-left: 4px;
-			}
-
-			.node-connector {
-				flex: 0 0 auto;
-				width: 12px;
-				height: 12px;
-				margin: 0 2px;
-				border-radius: 50%;
-				background: var(--color-data-raster);
+			.expand-arrow {
+				margin-left: -16px;
+				width: 16px;
+				height: 100%;
+				padding: 0;
 				outline: none;
 				border: none;
 				position: relative;
+				background: none;
+				flex: 0 0 auto;
+				display: flex;
+				align-items: center;
+				justify-content: center;
+				border-radius: 2px;
+
+				&:hover {
+					background: var(--color-6-lowergray);
+				}
 
 				&::after {
 					content: "";
 					position: absolute;
 					width: 0;
 					height: 0;
-					top: 3px;
-					left: 4px;
 					border-style: solid;
 					border-width: 3px 0 3px 6px;
-					border-color: transparent transparent transparent var(--color-2-mildblack);
+					border-color: transparent transparent transparent var(--color-e-nearwhite);
+
+					&:hover {
+						color: var(--color-f-white);
+					}
 				}
 
 				&.expanded::after {
-					top: 4px;
-					left: 3px;
 					border-width: 6px 3px 0 3px;
-					border-color: var(--color-2-mildblack) transparent transparent transparent;
-				}
-			}
+					border-color: var(--color-e-nearwhite) transparent transparent transparent;
 
-			.node-connector-missing {
-				width: 16px;
-				flex: 0 0 auto;
+					&:hover {
+						color: var(--color-f-white);
+					}
+				}
 			}
 
 			.layer {
-				display: flex;
-				min-width: 0;
 				align-items: center;
-				border-radius: 2px;
-				background: var(--color-5-dullgray);
-				margin-right: 16px;
+				z-index: 1;
 				width: 100%;
 				height: 100%;
-				z-index: 1;
+				padding: 0 4px;
+				border-radius: 2px;
+				margin-right: 8px;
 
 				&.selected {
-					background: var(--color-7-middlegray);
+					background: var(--color-5-dullgray);
 					color: var(--color-f-white);
 				}
 
-				.layer-thumbnail {
+				.layer-type-icon {
+					flex: 0 0 auto;
+					margin: 0 4px;
+				}
+
+				.layer-name {
+					flex: 1 1 100%;
+					margin: 0 4px;
+
+					input {
+						color: inherit;
+						background: none;
+						border: none;
+						outline: none;
+						margin: 0;
+						padding: 0;
+						text-overflow: ellipsis;
+						white-space: nowrap;
+						overflow: hidden;
+						border-radius: 2px;
+						height: 24px;
+						width: 100%;
+
+						&:disabled {
+							user-select: none;
+							// Workaround for `user-select: none` not working on <input> elements
+							pointer-events: none;
+						}
+
+						&::placeholder {
+							color: inherit;
+							font-style: italic;
+						}
+
+						&:focus {
+							background: var(--color-1-nearblack);
+							padding: 0 4px;
+
+							&::placeholder {
+								opacity: 0.5;
+							}
+						}
+					}
+				}
+
+				.thumbnail {
+					height: calc(100% - 4px);
+					margin: 2px 0;
+					margin-left: 4px;
 					width: 64px;
-					height: 100%;
 					background: white;
 					border-radius: 2px;
 					flex: 0 0 auto;
@@ -163,63 +251,22 @@
 						margin: 2px;
 					}
 				}
-
-				.layer-type-icon {
-					margin-left: 8px;
-					margin-right: 4px;
-					flex: 0 0 auto;
-				}
-
-				.layer-name {
-					display: flex;
-					min-width: 0;
-					flex: 1 1 100%;
-					margin-right: 8px;
-
-					span {
-						text-overflow: ellipsis;
-						white-space: nowrap;
-						overflow: hidden;
-					}
-				}
 			}
 
-			.glue {
-				position: absolute;
-				background: var(--color-data-raster);
-				height: 6px;
-				bottom: -4px;
-				left: 44px;
-				right: 16px;
-				z-index: 0;
+			&.insert-folder .layer {
+				outline: 3px solid var(--color-accent-hover);
+				outline-offset: -3px;
 			}
 		}
 
 		.insert-mark {
-			position: relative;
-			margin-right: 16px;
-			height: 0;
-			z-index: 2;
-
-			&::after {
-				content: "";
-				position: absolute;
-				background: var(--color-accent-hover);
-				width: 100%;
-				height: 6px;
-			}
-
-			&:not(:first-child, :last-child) {
-				top: -2px;
-			}
-
-			&:first-child::after {
-				top: 0;
-			}
-
-			&:last-child::after {
-				bottom: 0;
-			}
+			position: absolute;
+			// `left` is applied dynamically
+			right: 0;
+			background: var(--color-accent-hover);
+			margin-top: -2px;
+			height: 5px;
+			z-index: 1;
 		}
 	}
 }
@@ -228,19 +275,19 @@
 <script lang="ts">
 import { defineComponent } from "vue";
 
-import { BlendMode, DisplayFolderTreeStructure, UpdateLayer, LayerPanelEntry, LayerTypeOptions } from "@/dispatcher/js-messages";
-import { SeparatorType } from "@/components/widgets/widgets";
+import { BlendMode, DisplayDocumentLayerTreeStructure, UpdateDocumentLayer, LayerPanelEntry } from "@/dispatcher/js-messages";
 
-import LayoutRow from "@/components/layout/LayoutRow.vue";
 import LayoutCol from "@/components/layout/LayoutCol.vue";
-import Separator from "@/components/widgets/separators/Separator.vue";
-import NumberInput from "@/components/widgets/inputs/NumberInput.vue";
-import PopoverButton from "@/components/widgets/buttons/PopoverButton.vue";
-import { MenuDirection } from "@/components/widgets/floating-menus/FloatingMenu.vue";
+import LayoutRow from "@/components/layout/LayoutRow.vue";
 import IconButton from "@/components/widgets/buttons/IconButton.vue";
-import IconLabel from "@/components/widgets/labels/IconLabel.vue";
-import DropdownInput from "@/components/widgets/inputs/DropdownInput.vue";
+import PopoverButton from "@/components/widgets/buttons/PopoverButton.vue";
 import { SectionsOfMenuListEntries } from "@/components/widgets/floating-menus/MenuList.vue";
+import DropdownInput from "@/components/widgets/inputs/DropdownInput.vue";
+import NumberInput from "@/components/widgets/inputs/NumberInput.vue";
+import IconLabel from "@/components/widgets/labels/IconLabel.vue";
+import Separator from "@/components/widgets/separators/Separator.vue";
+
+type LayerListingInfo = { folderIndex: number; bottomLayer: boolean; editingName: boolean; entry: LayerPanelEntry };
 
 const blendModeEntries: SectionsOfMenuListEntries<BlendMode> = [
 	[{ label: "Normal", value: "Normal" }],
@@ -281,9 +328,12 @@ const blendModeEntries: SectionsOfMenuListEntries<BlendMode> = [
 	],
 ];
 
-const RANGE_TO_INSERT_WITHIN_BOTTOM_FOLDER_NOT_ROOT = 40;
-const LAYER_LEFT_MARGIN_OFFSET = 28;
-const LAYER_LEFT_INDENT_OFFSET = 16;
+const RANGE_TO_INSERT_WITHIN_BOTTOM_FOLDER_NOT_ROOT = 20;
+const LAYER_INDENT = 16;
+const INSERT_MARK_MARGIN_LEFT = 4 + 32 + LAYER_INDENT;
+const INSERT_MARK_OFFSET = 2;
+
+type DraggingData = { insertFolder: BigUint64Array; insertIndex: number; highlightFolder: boolean; markerHeight: number };
 
 export default defineComponent({
 	inject: ["editor"],
@@ -295,35 +345,68 @@ export default defineComponent({
 			opacityNumberInputDisabled: true,
 			// TODO: replace with BigUint64Array as index
 			layerCache: new Map() as Map<string, LayerPanelEntry>,
-			layers: [] as LayerPanelEntry[],
+			layers: [] as LayerListingInfo[],
 			layerDepths: [] as number[],
 			selectionRangeStartLayer: undefined as undefined | LayerPanelEntry,
 			selectionRangeEndLayer: undefined as undefined | LayerPanelEntry,
 			opacity: 100,
-			draggingData: undefined as undefined | { path: BigUint64Array; above: boolean; nearestPath: BigUint64Array; insertLine: HTMLDivElement },
-			MenuDirection,
-			SeparatorType,
-			LayerTypeOptions,
+			draggable: true,
+			draggingData: undefined as undefined | DraggingData,
+			devMode: process.env.NODE_ENV === "development",
 		};
 	},
 	methods: {
 		layerIndent(layer: LayerPanelEntry): string {
-			return `${(layer.path.length - 1) * 16}px`;
+			return `${layer.path.length * LAYER_INDENT}px`;
+		},
+		markIndent(path: BigUint64Array): string {
+			return `${INSERT_MARK_MARGIN_LEFT + path.length * LAYER_INDENT}px`;
+		},
+		markTopOffset(height: number): string {
+			return `${height}px`;
 		},
 		async toggleLayerVisibility(path: BigUint64Array) {
 			this.editor.instance.toggle_layer_visibility(path);
 		},
-		async handleNodeConnectorClick(path: BigUint64Array) {
+		async handleExpandArrowClick(path: BigUint64Array) {
 			this.editor.instance.toggle_layer_expansion(path);
 		},
-		async setLayerBlendMode() {
-			const blendMode = this.blendModeEntries.flat()[this.blendModeSelectedIndex].value;
-			if (blendMode) {
-				this.editor.instance.set_blend_mode_for_selected_layers(blendMode);
-			}
+		onEditLayerName(listing: LayerListingInfo) {
+			if (listing.editingName) return;
+
+			this.draggable = false;
+
+			listing.editingName = true;
+			const tree = (this.$refs.layerTreeList as typeof LayoutCol).$el as HTMLElement;
+			this.$nextTick(() => {
+				(tree.querySelector("input:not([disabled])") as HTMLInputElement).select();
+			});
 		},
-		async setLayerOpacity() {
-			this.editor.instance.set_opacity_for_selected_layers(this.opacity);
+		async onEditLayerNameChange(listing: LayerListingInfo, inputElement: EventTarget | null) {
+			// Eliminate duplicate events
+			if (!listing.editingName) return;
+
+			this.draggable = true;
+
+			const name = (inputElement as HTMLInputElement).value;
+			listing.editingName = false;
+			this.editor.instance.set_layer_name(listing.entry.path, name);
+		},
+		onEditLayerNameDeselect(listing: LayerListingInfo) {
+			this.draggable = true;
+
+			listing.editingName = false;
+			this.$nextTick(() => {
+				const selection = window.getSelection();
+				if (selection) selection.removeAllRanges();
+			});
+		},
+		async setLayerBlendMode(newSelectedIndex: number) {
+			const blendMode = this.blendModeEntries.flat()[newSelectedIndex].value;
+			if (blendMode) this.editor.instance.set_blend_mode_for_selected_layers(blendMode);
+		},
+		async setLayerOpacity(newOpacity: number) {
+			this.editor.instance.set_opacity_for_selected_layers(newOpacity);
 		},
 		async selectLayer(clickedLayer: LayerPanelEntry, ctrl: boolean, shift: boolean) {
 			this.editor.instance.select_layer(clickedLayer.path, ctrl, shift);
@@ -336,32 +419,36 @@ export default defineComponent({
 		},
 		async clearSelection() {
 			this.layers.forEach((layer) => {
-				layer.layer_metadata.selected = false;
+				layer.entry.layer_metadata.selected = false;
 			});
 		},
-		closest(tree: HTMLElement, clientY: number): [BigUint64Array, boolean, Node] {
+		calculateDragIndex(tree: HTMLElement, clientY: number): DraggingData {
 			const treeChildren = tree.children;
+			const treeOffset = tree.getBoundingClientRect().top;
 
 			// Closest distance to the middle of the row along the Y axis
 			let closest = Infinity;
 
-			// The nearest row parent (element of the tree)
-			let nearestElement = tree.lastChild as Node;
+			// Folder to insert into
+			let insertFolder = new BigUint64Array();
 
-			// The nearest element in the path to the mouse
-			let nearestPath = new BigUint64Array();
+			// Insert index
+			let insertIndex = -1;
 
-			// Item goes above or below the mouse
-			let above = false;
+			// Whether you are inserting into a folder and should show the folder outline
+			let highlightFolder = false;
 
-			Array.from(treeChildren).forEach((treeChild) => {
-				if (treeChild.childElementCount <= 2) return;
+			let markerHeight = 0;
+			let previousHeight = undefined as undefined | number;
 
-				const child = treeChild.children[2] as HTMLElement;
+			Array.from(treeChildren).forEach((treeChild, index) => {
+				const layerComponents = treeChild.getElementsByClassName("layer");
+				if (layerComponents.length !== 1) return;
+				const child = layerComponents[0];
 
 				const indexAttribute = child.getAttribute("data-index");
 				if (!indexAttribute) return;
-				const layer = this.layers[parseInt(indexAttribute, 10)];
+				const { folderIndex, entry: layer } = this.layers[parseInt(indexAttribute, 10)];
 
 				const rect = child.getBoundingClientRect();
 				const position = rect.top + rect.height / 2;
@@ -369,84 +456,64 @@ export default defineComponent({
 
 				// Inserting above current row
 				if (distance > 0 && distance < closest) {
+					insertFolder = layer.path.slice(0, layer.path.length - 1);
+					insertIndex = folderIndex;
+					highlightFolder = false;
 					closest = distance;
-					nearestPath = layer.path;
-					above = true;
-					if (child.parentNode) {
-						nearestElement = child.parentNode;
-					}
+					markerHeight = previousHeight || treeOffset + INSERT_MARK_OFFSET;
 				}
 				// Inserting below current row
-				else if (distance > -closest && distance > -RANGE_TO_INSERT_WITHIN_BOTTOM_FOLDER_NOT_ROOT && distance < 0 && layer.layer_type !== LayerTypeOptions.Folder) {
+				else if (distance > -closest && distance > -RANGE_TO_INSERT_WITHIN_BOTTOM_FOLDER_NOT_ROOT && distance < 0) {
+					insertFolder = layer.layer_type === "Folder" ? layer.path : layer.path.slice(0, layer.path.length - 1);
+					insertIndex = layer.layer_type === "Folder" ? 0 : folderIndex + 1;
+					highlightFolder = layer.layer_type === "Folder";
 					closest = -distance;
-					nearestPath = layer.path;
-					if (child.parentNode && child.parentNode.nextSibling) {
-						nearestElement = child.parentNode.nextSibling;
-					}
+					markerHeight = index === treeChildren.length - 1 ? rect.bottom - INSERT_MARK_OFFSET : rect.bottom;
 				}
 				// Inserting with no nesting at the end of the panel
 				else if (closest === Infinity) {
-					nearestPath = layer.path.slice(0, 1);
+					if (layer.path.length === 1) insertIndex = folderIndex + 1;
+
+					markerHeight = rect.bottom - INSERT_MARK_OFFSET;
 				}
+				previousHeight = rect.bottom;
 			});
 
-			return [nearestPath, above, nearestElement];
+			markerHeight -= treeOffset;
+
+			return { insertFolder, insertIndex, highlightFolder, markerHeight };
 		},
 		async dragStart(event: DragEvent, layer: LayerPanelEntry) {
+			if (!layer.layer_metadata.selected) this.selectLayer(layer, event.ctrlKey, event.shiftKey);
+
 			// Set style of cursor for drag
 			if (event.dataTransfer) {
 				event.dataTransfer.dropEffect = "move";
 				event.dataTransfer.effectAllowed = "move";
 			}
-
 			const tree = (this.$refs.layerTreeList as typeof LayoutCol).$el;
 
-			// Create the insert line
-			const insertLine = document.createElement("div") as HTMLDivElement;
-			insertLine.classList.add("insert-mark");
-			tree.appendChild(insertLine);
-
-			const [nearestPath, above, nearestElement] = this.closest(tree, event.clientY);
-
-			// Set the initial state of the line
-			if (nearestElement.parentNode) {
-				insertLine.style.marginLeft = `${LAYER_LEFT_MARGIN_OFFSET + LAYER_LEFT_INDENT_OFFSET * nearestPath.length}px`;
-				tree.insertBefore(insertLine, nearestElement);
-			}
-
-			this.draggingData = { path: layer.path, above, nearestPath, insertLine };
+			this.draggingData = this.calculateDragIndex(tree, event.clientY);
 		},
-		updateLine(event: DragEvent) {
+		updateInsertLine(event: DragEvent) {
 			// Stop the drag from being shown as cancelled
 			event.preventDefault();
 
 			const tree = (this.$refs.layerTreeList as typeof LayoutCol).$el as HTMLElement;
-
-			const [nearestPath, above, nearestElement] = this.closest(tree, event.clientY);
-
-			if (this.draggingData) {
-				this.draggingData.nearestPath = nearestPath;
-				this.draggingData.above = above;
-
-				if (nearestElement.parentNode) {
-					this.draggingData.insertLine.style.marginLeft = `${LAYER_LEFT_MARGIN_OFFSET + LAYER_LEFT_INDENT_OFFSET * nearestPath.length}px`;
-					tree.insertBefore(this.draggingData.insertLine, nearestElement);
-				}
-			}
-		},
-		removeLine() {
-			if (this.draggingData) {
-				this.draggingData.insertLine.remove();
-			}
+			this.draggingData = this.calculateDragIndex(tree, event.clientY);
 		},
 		async drop() {
-			this.removeLine();
 			if (this.draggingData) {
-				this.editor.instance.move_layer_in_tree(this.draggingData.path, this.draggingData.above, this.draggingData.nearestPath);
+				const { insertFolder, insertIndex } = this.draggingData;
+
+				this.editor.instance.move_layer_in_tree(insertFolder, insertIndex);
+
+				this.draggingData = undefined;
 			}
 		},
+		// TODO: Move blend mode setting logic to backend based on the layers it knows are selected
 		setBlendModeForSelectedLayers() {
-			const selected = this.layers.filter((layer) => layer.layer_metadata.selected);
+			const selected = this.layers.filter((layer) => layer.entry.layer_metadata.selected);
 
 			if (selected.length < 1) {
 				this.blendModeSelectedIndex = 0;
@@ -455,8 +522,8 @@ export default defineComponent({
 			}
 			this.blendModeDropdownDisabled = false;
 
-			const firstEncounteredBlendMode = selected[0].blend_mode;
-			const allBlendModesAlike = !selected.find((layer) => layer.blend_mode !== firstEncounteredBlendMode);
+			const firstEncounteredBlendMode = selected[0].entry.blend_mode;
+			const allBlendModesAlike = !selected.find((layer) => layer.entry.blend_mode !== firstEncounteredBlendMode);
 
 			if (allBlendModesAlike) {
 				this.blendModeSelectedIndex = this.blendModeEntries.flat().findIndex((entry) => entry.value === firstEncounteredBlendMode);
@@ -465,9 +532,9 @@ export default defineComponent({
 				this.blendModeSelectedIndex = NaN;
 			}
 		},
+		// TODO: Move opacity setting logic to backend based on the layers it knows are selected
 		setOpacityForSelectedLayers() {
-			// todo figure out why this is here
-			const selected = this.layers.filter((layer) => layer.layer_metadata.selected);
+			const selected = this.layers.filter((layer) => layer.entry.layer_metadata.selected);
 
 			if (selected.length < 1) {
 				this.opacity = 100;
@@ -476,8 +543,8 @@ export default defineComponent({
 			}
 			this.opacityNumberInputDisabled = false;
 
-			const firstEncounteredOpacity = selected[0].opacity;
-			const allOpacitiesAlike = !selected.find((layer) => layer.opacity !== firstEncounteredOpacity);
+			const firstEncounteredOpacity = selected[0].entry.opacity;
+			const allOpacitiesAlike = !selected.find((layer) => layer.entry.opacity !== firstEncounteredOpacity);
 
 			if (allOpacitiesAlike) {
 				this.opacity = firstEncounteredOpacity;
@@ -488,25 +555,33 @@ export default defineComponent({
 		},
 	},
 	mounted() {
-		this.editor.dispatcher.subscribeJsMessage(DisplayFolderTreeStructure, (displayFolderTreeStructure) => {
+		this.editor.dispatcher.subscribeJsMessage(DisplayDocumentLayerTreeStructure, (displayDocumentLayerTreeStructure) => {
+			const layerWithNameBeingEdited = this.layers.find((layer: LayerListingInfo) => layer.editingName);
+			const layerPathWithNameBeingEdited = layerWithNameBeingEdited && layerWithNameBeingEdited.entry.path;
+			const layerIdWithNameBeingEdited = layerPathWithNameBeingEdited && layerPathWithNameBeingEdited.slice(-1)[0];
 			const path = [] as bigint[];
-			this.layers = [] as LayerPanelEntry[];
-			function recurse(folder: DisplayFolderTreeStructure, layers: LayerPanelEntry[], cache: Map<string, LayerPanelEntry>) {
-				folder.children.forEach((item) => {
+			this.layers = [] as LayerListingInfo[];
+
+			const recurse = (folder: DisplayDocumentLayerTreeStructure, layers: LayerListingInfo[], cache: Map<string, LayerPanelEntry>): void => {
+				folder.children.forEach((item, index) => {
 					// TODO: fix toString
-					path.push(BigInt(item.layerId.toString()));
+					const layerId = BigInt(item.layerId.toString());
+					path.push(layerId);
+
 					const mapping = cache.get(path.toString());
-					if (mapping) layers.push(mapping);
+					if (mapping) layers.push({ folderIndex: index, bottomLayer: index === folder.children.length - 1, entry: mapping, editingName: layerIdWithNameBeingEdited === layerId });
+
 					if (item.children.length >= 1) recurse(item, layers, cache);
 					path.pop();
 				});
-			}
-			recurse(displayFolderTreeStructure, this.layers, this.layerCache);
+			};
+
+			recurse(displayDocumentLayerTreeStructure, this.layers, this.layerCache);
 		});
 
-		this.editor.dispatcher.subscribeJsMessage(UpdateLayer, (updateLayer) => {
-			const targetPath = updateLayer.data.path;
-			const targetLayer = updateLayer.data;
+		this.editor.dispatcher.subscribeJsMessage(UpdateDocumentLayer, (updateDocumentLayer) => {
+			const targetPath = updateDocumentLayer.data.path;
+			const targetLayer = updateDocumentLayer.data;
 
 			const layer = this.layerCache.get(targetPath.toString());
 			if (layer) {

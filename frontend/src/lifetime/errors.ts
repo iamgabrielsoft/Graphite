@@ -1,12 +1,12 @@
+import { DisplayDialogError, DisplayDialogPanic } from "@/dispatcher/js-messages";
 import { DialogState } from "@/state/dialog";
-import { TextButtonWidget } from "@/components/widgets/widgets";
-import { DisplayError, DisplayPanic } from "@/dispatcher/js-messages";
 import { EditorState } from "@/state/wasm-loader";
 import { stripIndents } from "@/utilities/strip-indents";
+import { TextButtonWidget } from "@/utilities/widgets";
 
-export function initErrorHandling(editor: EditorState, dialogState: DialogState) {
+export function initErrorHandling(editor: EditorState, dialogState: DialogState): void {
 	// Graphite error dialog
-	editor.dispatcher.subscribeJsMessage(DisplayError, (displayError) => {
+	editor.dispatcher.subscribeJsMessage(DisplayDialogError, (displayDialogError) => {
 		const okButton: TextButtonWidget = {
 			kind: "TextButton",
 			callback: async () => dialogState.dismissDialog(),
@@ -14,16 +14,16 @@ export function initErrorHandling(editor: EditorState, dialogState: DialogState)
 		};
 		const buttons = [okButton];
 
-		dialogState.createDialog("Warning", displayError.title, displayError.description, buttons);
+		dialogState.createDialog("Warning", displayDialogError.title, displayDialogError.description, buttons);
 	});
 
 	// Code panic dialog and console error
-	editor.dispatcher.subscribeJsMessage(DisplayPanic, (displayPanic) => {
+	editor.dispatcher.subscribeJsMessage(DisplayDialogPanic, (displayDialogPanic) => {
 		// `Error.stackTraceLimit` is only available in V8/Chromium
 		// eslint-disable-next-line @typescript-eslint/no-explicit-any
 		(Error as any).stackTraceLimit = Infinity;
 		const stackTrace = new Error().stack || "";
-		const panicDetails = `${displayPanic.panic_info}\n\n${stackTrace}`;
+		const panicDetails = `${displayDialogPanic.panic_info}\n\n${stackTrace}`;
 
 		// eslint-disable-next-line no-console
 		console.error(panicDetails);
@@ -45,11 +45,11 @@ export function initErrorHandling(editor: EditorState, dialogState: DialogState)
 		};
 		const buttons = [reloadButton, copyErrorLogButton, reportOnGithubButton];
 
-		dialogState.createDialog("Warning", displayPanic.title, displayPanic.description, buttons);
+		dialogState.createDialog("Warning", displayDialogPanic.title, displayDialogPanic.description, buttons);
 	});
 }
 
-function githubUrl(panicDetails: string) {
+function githubUrl(panicDetails: string): string {
 	const url = new URL("https://github.com/GraphiteEditor/Graphite/issues/new");
 
 	const body = stripIndents`

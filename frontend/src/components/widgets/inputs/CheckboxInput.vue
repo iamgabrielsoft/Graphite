@@ -1,27 +1,27 @@
 <template>
-	<div class="checkbox-input" :class="{ 'outline-style': outlineStyle }">
-		<input type="checkbox" :id="`checkbox-input-${id}`" :checked="checked" @input="(e) => $emit('update:checked', e.target.checked)" />
+	<LayoutRow class="checkbox-input" :class="{ 'outline-style': outlineStyle }">
+		<input type="checkbox" :id="`checkbox-input-${id}`" :checked="checked" @input="(e) => $emit('update:checked', (e.target as HTMLInputElement).checked)" />
 		<label :for="`checkbox-input-${id}`">
-			<div class="checkbox-box">
+			<LayoutRow class="checkbox-box">
 				<IconLabel :icon="icon" />
-			</div>
+			</LayoutRow>
 		</label>
-	</div>
+	</LayoutRow>
 </template>
 
 <style lang="scss">
 .checkbox-input {
-	display: inline-block;
+	flex: 0 0 auto;
 
 	input {
 		display: none;
 	}
 
 	label {
-		display: block;
+		display: flex;
 
 		.checkbox-box {
-			display: block;
+			flex: 0 0 auto;
 			background: var(--color-e-nearwhite);
 			padding: 2px;
 			border-radius: 2px;
@@ -80,8 +80,11 @@
 </style>
 
 <script lang="ts">
-import { defineComponent } from "vue";
+import { defineComponent, PropType } from "vue";
 
+import { IconName } from "@/utilities/icons";
+
+import LayoutRow from "@/components/layout/LayoutRow.vue";
 import IconLabel from "@/components/widgets/labels/IconLabel.vue";
 
 export default defineComponent({
@@ -96,10 +99,13 @@ export default defineComponent({
 		},
 	},
 	props: {
-		checked: { type: Boolean, required: true },
-		icon: { type: String, default: "Checkmark" },
-		outlineStyle: { type: Boolean, default: false },
+		checked: { type: Boolean as PropType<boolean>, default: false },
+		icon: { type: String as PropType<IconName>, default: "Checkmark" },
+		outlineStyle: { type: Boolean as PropType<boolean>, default: false },
 	},
-	components: { IconLabel },
+	components: {
+		IconLabel,
+		LayoutRow,
+	},
 });
 </script>

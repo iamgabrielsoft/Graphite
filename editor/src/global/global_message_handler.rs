@@ -1,6 +1,4 @@
 use crate::message_prelude::*;
-use serde::{Deserialize, Serialize};
-use std::collections::VecDeque;
 
 #[impl_message(Message, Global)]
 #[derive(PartialEq, Clone, Debug, Serialize, Deserialize)]
@@ -20,20 +18,24 @@ pub struct GlobalMessageHandler {
 }
 
 impl MessageHandler<GlobalMessage, ()> for GlobalMessageHandler {
+
+  #[remain::check]
 	fn process_action(&mut self, message: GlobalMessage, _data: (), responses: &mut VecDeque<Message>) {
 		use GlobalMessage::*;
+
+		#[remain::sorted]
 		match message {
-			LogInfo => {
-				log::set_max_level(log::LevelFilter::Info);
-				log::info!("set log verbosity to info");
-			}
 			LogDebug => {
 				log::set_max_level(log::LevelFilter::Debug);
-				log::info!("set log verbosity to debug");
+				log::info!("Set log verbosity to debug");
+			}
+			LogInfo => {
+				log::set_max_level(log::LevelFilter::Info);
+				log::info!("Set log verbosity to info");
 			}
 			LogTrace => {
 				log::set_max_level(log::LevelFilter::Trace);
-				log::info!("set log verbosity to trace");
+				log::info!("Set log verbosity to trace");
 			}
 			RecordInput(message) => self.input_messages.push(*message),
 			RecordOutput(message) => self.output_messages.push(message),

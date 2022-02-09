@@ -1,8 +1,8 @@
 <template>
-	<div class="user-input-label">
+	<LayoutRow class="user-input-label">
 		<template v-for="(keyGroup, keyGroupIndex) in inputKeys" :key="keyGroupIndex">
 			<span class="group-gap" v-if="keyGroupIndex > 0"></span>
-			<template v-for="inputKey in keyGroup" :key="((keyInfo = keyTextOrIcon(inputKey)), inputKey)">
+			<template v-for="(keyInfo, index) in keyTextOrIconList(keyGroup)" :key="index">
 				<span class="input-key" :class="keyInfo.width">
 					<IconLabel v-if="keyInfo.icon" :icon="keyInfo.icon" />
 					<template v-else>{{ keyInfo.text }}</template>
@@ -10,19 +10,19 @@
 			</template>
 		</template>
 		<span class="input-mouse" v-if="inputMouse">
-			<IconLabel :icon="mouseMovementIcon(inputMouse)" />
+			<IconLabel :icon="mouseHintIcon(inputMouse)" />
 		</span>
 		<span class="hint-text" v-if="hasSlotContent">
 			<slot></slot>
 		</span>
-	</div>
+	</LayoutRow>
 </template>
 
 <style lang="scss">
 .user-input-label {
+	flex: 0 0 auto;
 	height: 100%;
 	margin: 0 8px;
-	display: flex;
 	align-items: center;
 	white-space: nowrap;
 
@@ -39,6 +39,9 @@
 	}
 
 	.input-key {
+		display: flex;
+		justify-content: center;
+		align-items: center;
 		font-family: "Inconsolata", monospace;
 		font-weight: 400;
 		text-align: center;
@@ -49,7 +52,7 @@
 		border-color: var(--color-7-middlegray);
 		border-radius: 4px;
 		height: 16px;
-		// Firefox renders the text 1px lower than Chrome (tested on Windows) with 16px line-height, so moving it up 1 pixel with 15px makes them agree
+		// Firefox renders the text 1px lower than Chrome (tested on Windows) with 16px line-height, so moving it up 1 pixel by using 15px makes them agree
 		line-height: 15px;
 
 		&.width-16 {
@@ -74,7 +77,6 @@
 
 		.icon-label {
 			margin: 1px;
-			display: inline-block;
 		}
 	}
 
@@ -95,28 +97,23 @@
 </style>
 
 <script lang="ts">
-import { defineComponent } from "vue";
+import { defineComponent, PropType } from "vue";
 
+import { HintInfo, KeysGroup } from "@/dispatcher/js-messages";
+
+import { IconName } from "@/utilities/icons";
+
+import LayoutRow from "@/components/layout/LayoutRow.vue";
 import IconLabel from "@/components/widgets/labels/IconLabel.vue";
 
-export enum MouseInputInteraction {
-	"None" = "None",
-	"Lmb" = "Lmb",
-	"Rmb" = "Rmb",
-	"Mmb" = "Mmb",
-	"ScrollUp" = "ScrollUp",
-	"ScrollDown" = "ScrollDown",
-	"Drag" = "Drag",
-	"LmbDrag" = "LmbDrag",
-	"RmbDrag" = "RmbDrag",
-	"MmbDrag" = "MmbDrag",
-}
-
 export default defineComponent({
-	components: { IconLabel },
+	components: {
+		IconLabel,
+		LayoutRow,
+	},
 	props: {
-		inputKeys: { type: Array, default: () => [] },
-		inputMouse: { type: String },
+		inputKeys: { type: Array as PropType<HintInfo["key_groups"]>, default: () => [] },
+		inputMouse: { type: String as PropType<HintInfo["mouse"]>, default: null },
 	},
 	computed: {
 		hasSlotContent(): boolean {
@@ -124,7 +121,10 @@ export default defineComponent({
 		},
 	},
 	methods: {
-		keyTextOrIcon(keyText: string): { text: string | null; icon: string | null; width: string } {
+		keyTextOrIconList(keyGroup: KeysGroup): { text: string | null; icon: IconName | null; width: string }[] {
+			return keyGroup.map((inputKey) => this.keyTextOrIcon(inputKey));
+		},
+		keyTextOrIcon(keyText: string): { text: string | null; icon: IconName | null; width: string } {
 			// Definitions
 			const textMap: Record<string, string> = {
 				Control: "Ctrl",
@@ -164,7 +164,7 @@ export default defineComponent({
 			if (text in iconsAndWidths) {
 				return {
 					text: null,
-					icon: `Keyboard${text}`,
+					icon: this.keyboardHintIcon(text),
 					width: `width-${iconsAndWidths[text] * 8 + 8}`,
 				};
 			}
@@ -173,50 +173,20 @@ export default defineComponent({
 			let result;
 
 			// Letters and numbers
-			if (/^[A-Z0-9]$/.test(text)) {
-				result = text;
-			}
+			if (/^[A-Z0-9]$/.test(text)) result = text;
 			// Abbreviated names
-			else if (text in textMap) {
-				result = textMap[text];
-			}
+			else if (text in textMap) result = textMap[text];
 			// Other
-			else {
-				result = text;
-			}
+			else result = text;
 
 			return { text: result, icon: null, width: `width-${(result || " ").length * 8 + 8}` };
 		},
-		mouseMovementIcon(mouseInputInteraction: MouseInputInteraction) {
-			switch (mouseInputInteraction) {
-				case MouseInputInteraction.Lmb:
-					return "MouseHintLmb";
-				case MouseInputInteraction.Rmb:
-					return "MouseHintRmb";
-				case MouseInputInteraction.Mmb:
-					return "MouseHintMmb";
-				case MouseInputInteraction.ScrollUp:
-					return "MouseHintScrollUp";
-				case MouseInputInteraction.ScrollDown:
-					return "MouseHintScrollDown";
-				case MouseInputInteraction.Drag:
-					return "MouseHintDrag";
-				case MouseInputInteraction.LmbDrag:
-					return "MouseHintLmbDrag";
-				case MouseInputInteraction.RmbDrag:
-					return "MouseHintRmbDrag";
-				case MouseInputInteraction.MmbDrag:
-					return "MouseHintMmbDrag";
-				default:
-				case MouseInputInteraction.None:
-					return "MouseHintNone";
-			}
+		mouseHintIcon(input: HintInfo["mouse"]): IconName {
+			return `MouseHint${input}` as IconName;
 		},
-	},
-	data() {
-		return {
-			MouseInputInteraction,
-		};
+		keyboardHintIcon(input: HintInfo["key_groups"][0][0]): IconName {
+			return `Keyboard${input}` as IconName;
+		},
 	},
 });
 </script>

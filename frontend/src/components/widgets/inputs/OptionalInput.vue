@@ -1,16 +1,15 @@
 <template>
-	<div class="optional-input">
-		<CheckboxInput :checked="checked" @input="(e) => $emit('update:checked', e.target.checked)" :icon="icon" />
-	</div>
+	<LayoutRow class="optional-input">
+		<CheckboxInput :checked="checked" @input="(e) => $emit('update:checked', (e.target as HTMLInputElement).checked)" :icon="icon" />
+	</LayoutRow>
 </template>
 
 <style lang="scss">
 .optional-input {
 	label {
-		display: flex;
 		align-items: center;
-		white-space: nowrap;
 		justify-content: center;
+		white-space: nowrap;
 		width: 24px;
 		height: 24px;
 		border: 1px solid var(--color-7-middlegray);
@@ -34,17 +33,21 @@
 </style>
 
 <script lang="ts">
-import { defineComponent } from "vue";
+import { defineComponent, PropType } from "vue";
 
+import { IconName } from "@/utilities/icons";
+
+import LayoutRow from "@/components/layout/LayoutRow.vue";
 import CheckboxInput from "@/components/widgets/inputs/CheckboxInput.vue";
 
 export default defineComponent({
 	props: {
-		checked: { type: Boolean, required: true },
-		icon: { type: String, default: "Checkmark" },
+		checked: { type: Boolean as PropType<boolean>, required: true },
+		icon: { type: String as PropType<IconName>, default: "Checkmark" },
 	},
 	components: {
 		CheckboxInput,
+		LayoutRow,
 	},
 });
 </script>

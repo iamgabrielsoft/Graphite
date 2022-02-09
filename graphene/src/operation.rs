@@ -1,18 +1,16 @@
-use std::{
-	collections::hash_map::DefaultHasher,
-	hash::{Hash, Hasher},
-};
-
-use crate::{
-	color::Color,
-	layers::{style, BlendMode, Layer},
-	LayerId,
-};
+use crate::color::Color;
+use crate::layers::blend_mode::BlendMode;
+use crate::layers::layer_info::Layer;
+use crate::layers::style;
+use crate::LayerId;
 
 use serde::{Deserialize, Serialize};
+use std::collections::hash_map::DefaultHasher;
+use std::hash::{Hash, Hasher};
 
 #[repr(C)]
 #[derive(Debug, Clone, Deserialize, Serialize, PartialEq)]
+// TODO: Rename all instances of `path` to `layer_path`
 pub enum Operation {
 	AddEllipse {
 		path: Vec<LayerId>,
@@ -47,7 +45,23 @@ pub enum Operation {
 		transform: [f64; 6],
 		style: style::PathStyle,
 	},
-	AddPen {
+	AddText {
+		path: Vec<LayerId>,
+		transform: [f64; 6],
+		insert_index: isize,
+		text: String,
+		style: style::PathStyle,
+		size: f64,
+	},
+	SetTextEditability {
+		path: Vec<LayerId>,
+		editable: bool,
+	},
+	SetTextContent {
+		path: Vec<LayerId>,
+		new_text: String,
+	},
+	AddPolyline {
 		path: Vec<LayerId>,
 		transform: [f64; 6],
 		insert_index: isize,
@@ -65,6 +79,7 @@ pub enum Operation {
 		path: Vec<LayerId>,
 		bez_path: kurbo::BezPath,
 		style: style::PathStyle,
+		closed: bool,
 	},
 	DeleteLayer {
 		path: Vec<LayerId>,
@@ -73,8 +88,8 @@ pub enum Operation {
 		path: Vec<LayerId>,
 	},
 	RenameLayer {
-		path: Vec<LayerId>,
-		name: String,
+		layer_path: Vec<LayerId>,
+		new_name: String,
 	},
 	InsertLayer {
 		layer: Layer,
@@ -95,6 +110,10 @@ pub enum Operation {
 	SetLayerTransformInViewport {
 		path: Vec<LayerId>,
 		transform: [f64; 6],
+	},
+	SetShapePath {
+		path: Vec<LayerId>,
+		bez_path: kurbo::BezPath,
 	},
 	SetShapePathInViewport {
 		path: Vec<LayerId>,
@@ -121,6 +140,10 @@ pub enum Operation {
 	SetLayerVisibility {
 		path: Vec<LayerId>,
 		visible: bool,
+	},
+	SetLayerName {
+		path: Vec<LayerId>,
+		name: String,
 	},
 	SetLayerBlendMode {
 		path: Vec<LayerId>,

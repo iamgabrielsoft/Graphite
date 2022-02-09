@@ -1,10 +1,10 @@
 <template>
-	<div class="floating-menu" :class="[direction.toLowerCase(), type.toLowerCase()]" v-if="open || type === MenuType.Dialog" ref="floatingMenu">
-		<div class="tail" v-if="type === MenuType.Popover"></div>
+	<div class="floating-menu" :class="[direction.toLowerCase(), type.toLowerCase()]" v-if="open || type === 'Dialog'" ref="floatingMenu">
+		<div class="tail" v-if="type === 'Popover'"></div>
 		<div class="floating-menu-container" ref="floatingMenuContainer">
-			<div class="floating-menu-content" :class="{ 'scrollable-y': scrollable }" ref="floatingMenuContent" :style="floatingMenuContentStyle">
+			<LayoutCol class="floating-menu-content" data-floating-menu-content :scrollableY="scrollableY" ref="floatingMenuContent" :style="floatingMenuContentStyle">
 				<slot></slot>
-			</div>
+			</LayoutCol>
 		</div>
 	</div>
 </template>
@@ -45,8 +45,6 @@
 			font-size: inherit;
 			padding: 8px;
 			z-index: 0;
-			display: flex;
-			flex-direction: column;
 			// Draw over the application without being clipped by the containing panel's `overflow: hidden`
 			position: fixed;
 		}
@@ -177,56 +175,41 @@
 </style>
 
 <script lang="ts">
-import { defineComponent } from "vue";
+import { defineComponent, PropType, StyleValue } from "vue";
 
-export enum MenuDirection {
-	Top = "Top",
-	Bottom = "Bottom",
-	Left = "Left",
-	Right = "Right",
-	TopLeft = "TopLeft",
-	TopRight = "TopRight",
-	BottomLeft = "BottomLeft",
-	BottomRight = "BottomRight",
-	Center = "Center",
-}
+import LayoutCol from "@/components/layout/LayoutCol.vue";
 
-export enum MenuType {
-	Popover = "Popover",
-	Dropdown = "Dropdown",
-	Dialog = "Dialog",
-}
+export type MenuDirection = "Top" | "Bottom" | "Left" | "Right" | "TopLeft" | "TopRight" | "BottomLeft" | "BottomRight" | "Center";
+export type MenuType = "Popover" | "Dropdown" | "Dialog";
 
 const POINTER_STRAY_DISTANCE = 100;
 
 export default defineComponent({
-	components: {},
 	props: {
-		direction: { type: String, default: MenuDirection.Bottom },
-		type: { type: String, required: true },
-		windowEdgeMargin: { type: Number, default: 6 },
-		minWidth: { type: Number, default: 0 },
-		scrollable: { type: Boolean, default: false },
+		direction: { type: String as PropType<MenuDirection>, default: "Bottom" },
+		type: { type: String as PropType<MenuType>, required: true },
+		windowEdgeMargin: { type: Number as PropType<number>, default: 6 },
+		minWidth: { type: Number as PropType<number>, default: 0 },
+		scrollableY: { type: Boolean as PropType<boolean>, default: false },
 	},
 	data() {
 		const containerResizeObserver = new ResizeObserver((entries) => {
-			const content = entries[0].target.querySelector(".floating-menu-content") as HTMLElement;
+			const content = entries[0].target.querySelector("[data-floating-menu-content]") as HTMLElement;
 			content.style.minWidth = `${entries[0].contentRect.width}px`;
 		});
-
 		return {
 			open: false,
 			pointerStillDown: false,
 			containerResizeObserver,
-			MenuDirection,
-			MenuType,
 		};
 	},
 	updated() {
 		const floatingMenuContainer = this.$refs.floatingMenuContainer as HTMLElement;
-		const floatingMenuContent = this.$refs.floatingMenuContent as HTMLElement;
-		const workspace = document.querySelector(".workspace-row");
-		if (!floatingMenuContainer || !floatingMenuContent || !workspace) return;
+		const floatingMenuContentComponent = this.$refs.floatingMenuContent as typeof LayoutCol;
+		const floatingMenuContent = floatingMenuContentComponent && (floatingMenuContentComponent.$el as HTMLElement);
+		const workspace = document.querySelector("[data-workspace]");
+
+		if (!floatingMenuContainer || !floatingMenuContentComponent || !floatingMenuContent || !workspace) return;
 
 		const workspaceBounds = workspace.getBoundingClientRect();
 		const floatingMenuBounds = floatingMenuContent.getBoundingClientRect();
@@ -235,28 +218,25 @@ export default defineComponent({
 		let zeroedBorderDirection1: Edge | undefined;
 		let zeroedBorderDirection2: Edge | undefined;
 
-		if (this.direction === MenuDirection.Top || this.direction === MenuDirection.Bottom) {
-			zeroedBorderDirection1 = this.direction === MenuDirection.Top ? "Bottom" : "Top";
+		if (this.direction === "Top" || this.direction === "Bottom") {
+			zeroedBorderDirection1 = this.direction === "Top" ? "Bottom" : "Top";
 
 			if (floatingMenuBounds.left - this.windowEdgeMargin <= workspaceBounds.left) {
 				floatingMenuContent.style.left = `${this.windowEdgeMargin}px`;
 				if (workspaceBounds.left + floatingMenuContainer.getBoundingClientRect().left === 12) zeroedBorderDirection2 = "Left";
 			}
-
 			if (floatingMenuBounds.right + this.windowEdgeMargin >= workspaceBounds.right) {
 				floatingMenuContent.style.right = `${this.windowEdgeMargin}px`;
 				if (workspaceBounds.right - floatingMenuContainer.getBoundingClientRect().right === 12) zeroedBorderDirection2 = "Right";
 			}
 		}
-
-		if (this.direction === MenuDirection.Left || this.direction === MenuDirection.Right) {
-			zeroedBorderDirection2 = this.direction === MenuDirection.Left ? "Right" : "Left";
+		if (this.direction === "Left" || this.direction === "Right") {
+			zeroedBorderDirection2 = this.direction === "Left" ? "Right" : "Left";
 
 			if (floatingMenuBounds.top - this.windowEdgeMargin <= workspaceBounds.top) {
 				floatingMenuContent.style.top = `${this.windowEdgeMargin}px`;
 				if (workspaceBounds.top + floatingMenuContainer.getBoundingClientRect().top === 12) zeroedBorderDirection1 = "Top";
 			}
-
 			if (floatingMenuBounds.bottom + this.windowEdgeMargin >= workspaceBounds.bottom) {
 				floatingMenuContent.style.bottom = `${this.windowEdgeMargin}px`;
 				if (workspaceBounds.bottom - floatingMenuContainer.getBoundingClientRect().bottom === 12) zeroedBorderDirection1 = "Bottom";
@@ -264,7 +244,7 @@ export default defineComponent({
 		}
 
 		// Remove the rounded corner from where the tail perfectly meets the corner
-		if (this.type === MenuType.Popover && this.windowEdgeMargin === 6 && zeroedBorderDirection1 && zeroedBorderDirection2) {
+		if (this.type === "Popover" && this.windowEdgeMargin === 6 && zeroedBorderDirection1 && zeroedBorderDirection2) {
 			switch (`${zeroedBorderDirection1}${zeroedBorderDirection2}`) {
 				case "TopLeft":
 					floatingMenuContent.style.borderTopLeftRadius = "0";
@@ -295,23 +275,21 @@ export default defineComponent({
 		},
 		getWidth(callback: (width: number) => void) {
 			this.$nextTick(() => {
-				const floatingMenuContent = this.$refs.floatingMenuContent as HTMLElement;
+				const floatingMenuContent = (this.$refs.floatingMenuContent as typeof LayoutCol).$el as HTMLElement;
 				const width = floatingMenuContent.clientWidth;
-
 				callback(width);
 			});
 		},
 		disableMinWidth(callback: (minWidth: string) => void) {
 			this.$nextTick(() => {
-				const floatingMenuContent = this.$refs.floatingMenuContent as HTMLElement;
+				const floatingMenuContent = (this.$refs.floatingMenuContent as typeof LayoutCol).$el as HTMLElement;
 				const initialMinWidth = floatingMenuContent.style.minWidth;
 				floatingMenuContent.style.minWidth = "0";
-
 				callback(initialMinWidth);
 			});
 		},
 		enableMinWidth(minWidth: string) {
-			const floatingMenuContent = this.$refs.floatingMenuContent as HTMLElement;
+			const floatingMenuContent = (this.$refs.floatingMenuContent as typeof LayoutCol).$el as HTMLElement;
 			floatingMenuContent.style.minWidth = minWidth;
 		},
 		pointerMoveHandler(e: PointerEvent) {
@@ -321,22 +299,18 @@ export default defineComponent({
 			// TODO: Simplify the following expression when optional chaining is supported by the build system
 			const pointerOverOwnFloatingMenuSpawner =
 				pointerOverFloatingMenuSpawner && pointerOverFloatingMenuSpawner.parentElement && pointerOverFloatingMenuSpawner.parentElement.contains(this.$refs.floatingMenu as HTMLElement);
-
 			// Swap this open floating menu with the one created by the floating menu spawner being hovered over
 			if (pointerOverFloatingMenuSpawner && !pointerOverOwnFloatingMenuSpawner) {
 				this.setClosed();
 				pointerOverFloatingMenuSpawner.click();
 			}
-
 			// Close the floating menu if the pointer has strayed far enough from its bounds
 			if (this.isPointerEventOutsideFloatingMenu(e, POINTER_STRAY_DISTANCE) && !pointerOverOwnFloatingMenuSpawner && !pointerOverFloatingMenuKeepOpen) {
 				// TODO: Extend this rectangle bounds check to all `data-hover-menu-keep-open` element bounds up the DOM tree since currently
 				// submenus disappear with zero stray distance if the cursor is further than the stray distance from only the top-level menu
 				this.setClosed();
 			}
-
 			const eventIncludesLmb = Boolean(e.buttons & 1);
-
 			// Clean up any messes from lost pointerup events
 			if (!this.open && !eventIncludesLmb) {
 				this.pointerStillDown = false;
@@ -347,7 +321,6 @@ export default defineComponent({
 			// Close the floating menu if the pointer clicked outside the floating menu (but within stray distance)
 			if (this.isPointerEventOutsideFloatingMenu(e)) {
 				this.setClosed();
-
 				// Track if the left pointer button is now down so its later click event can be canceled
 				const eventIsForLmb = e.button === 0;
 				if (eventIsForLmb) this.pointerStillDown = true;
@@ -355,12 +328,10 @@ export default defineComponent({
 		},
 		pointerUpHandler(e: PointerEvent) {
 			const eventIsForLmb = e.button === 0;
-
 			if (this.pointerStillDown && eventIsForLmb) {
 				// Clean up self
 				this.pointerStillDown = false;
 				window.removeEventListener("pointerup", this.pointerUpHandler);
-
 				// Prevent the click event from firing, which would normally occur right after this pointerup event
 				window.addEventListener("click", this.clickHandlerCapture, true);
 			}
@@ -368,13 +339,12 @@ export default defineComponent({
 		clickHandlerCapture(e: MouseEvent) {
 			// Stop the click event from reopening this floating menu if the click event targets the floating menu's button
 			e.stopPropagation();
-
 			// Clean up self
 			window.removeEventListener("click", this.clickHandlerCapture, true);
 		},
 		isPointerEventOutsideFloatingMenu(e: PointerEvent, extraDistanceAllowed = 0): boolean {
 			// Considers all child menus as well as the top-level one.
-			const allContainedFloatingMenus = [...this.$el.querySelectorAll(".floating-menu-content")];
+			const allContainedFloatingMenus = [...this.$el.querySelectorAll("[data-floating-menu-content]")];
 			return !allContainedFloatingMenus.find((element) => !this.isPointerEventOutsideMenuElement(e, element, extraDistanceAllowed));
 		},
 		isPointerEventOutsideMenuElement(e: PointerEvent, element: HTMLElement, extraDistanceAllowed = 0): boolean {
@@ -392,13 +362,10 @@ export default defineComponent({
 			if (newState && !oldState) {
 				// Close floating menu if pointer strays far enough away
 				window.addEventListener("pointermove", this.pointerMoveHandler);
-
 				// Close floating menu if pointer is outside (but within stray distance)
 				window.addEventListener("pointerdown", this.pointerDownHandler);
-
 				// Cancel the subsequent click event to prevent the floating menu from reopening if the floating menu's button is the click event target
 				window.addEventListener("pointerup", this.pointerUpHandler);
-
 				// Floating menu min-width resize observer
 				this.$nextTick(() => {
 					const floatingMenuContainer = this.$refs.floatingMenuContainer as HTMLElement;
@@ -408,22 +375,21 @@ export default defineComponent({
 					}
 				});
 			}
-
 			// Switching from open to closed
 			if (!newState && oldState) {
 				window.removeEventListener("pointermove", this.pointerMoveHandler);
 				window.removeEventListener("pointerdown", this.pointerDownHandler);
-
 				this.containerResizeObserver.disconnect();
 			}
 		},
 	},
 	computed: {
-		floatingMenuContentStyle(): Partial<CSSStyleDeclaration> {
+		floatingMenuContentStyle(): StyleValue {
 			return {
 				minWidth: this.minWidth > 0 ? `${this.minWidth}px` : "",
 			};
 		},
 	},
+	components: { LayoutCol },
 });
 </script>

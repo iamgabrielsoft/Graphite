@@ -1,32 +1,36 @@
-import { AutoSaveDocument, RemoveAutoSaveDocument } from "@/dispatcher/js-messages";
+import { TriggerIndexedDbWriteDocument, TriggerIndexedDbRemoveDocument } from "@/dispatcher/js-messages";
 import { DocumentsState } from "@/state/documents";
-import { EditorState } from "@/state/wasm-loader";
+import { EditorState, getWasmInstance } from "@/state/wasm-loader";
 
+const GRAPHITE_INDEXED_DB_VERSION = 2;
 const GRAPHITE_INDEXED_DB_NAME = "graphite-indexed-db";
-const GRAPHITE_INDEXED_DB_VERSION = 1;
 const GRAPHITE_AUTO_SAVE_STORE = "auto-save-documents";
 const GRAPHITE_AUTO_SAVE_ORDER_KEY = "auto-save-documents-order";
 
 const databaseConnection: Promise<IDBDatabase> = new Promise((resolve) => {
 	const dbOpenRequest = indexedDB.open(GRAPHITE_INDEXED_DB_NAME, GRAPHITE_INDEXED_DB_VERSION);
 
-	dbOpenRequest.onupgradeneeded = () => {
+	dbOpenRequest.onupgradeneeded = (): void => {
 		const db = dbOpenRequest.result;
-		if (!db.objectStoreNames.contains(GRAPHITE_AUTO_SAVE_STORE)) {
-			db.createObjectStore(GRAPHITE_AUTO_SAVE_STORE, { keyPath: "details.id" });
+		// Wipes out all auto-save data on upgrade
+		if (db.objectStoreNames.contains(GRAPHITE_AUTO_SAVE_STORE)) {
+			db.deleteObjectStore(GRAPHITE_AUTO_SAVE_STORE);
 		}
+
+		db.createObjectStore(GRAPHITE_AUTO_SAVE_STORE, { keyPath: "details.id" });
 	};
 
-	dbOpenRequest.onerror = () => {
+	dbOpenRequest.onerror = (): void => {
 		// eslint-disable-next-line no-console
 		console.error("Graphite IndexedDb error:", dbOpenRequest.error);
 	};
 
-	dbOpenRequest.onsuccess = () => {
+	dbOpenRequest.onsuccess = (): void => {
 		resolve(dbOpenRequest.result);
 	};
 });
 
+// eslint-disable-next-line @typescript-eslint/explicit-function-return-type
 export function createAutoSaveManager(editor: EditorState, documents: DocumentsState) {
 	const openAutoSavedDocuments = async (): Promise<void> => {
 		const db = await databaseConnection;
@@ -34,38 +38,49 @@ export function createAutoSaveManager(editor: EditorState, documents: DocumentsS
 		const request = transaction.objectStore(GRAPHITE_AUTO_SAVE_STORE).getAll();
 
 		return new Promise((resolve) => {
-			request.onsuccess = () => {
-				const previouslySavedDocuments: AutoSaveDocument[] = request.result;
+			request.onsuccess = (): void => {
+				const previouslySavedDocuments: TriggerIndexedDbWriteDocument[] = request.result;
 
 				const documentOrder: string[] = JSON.parse(window.localStorage.getItem(GRAPHITE_AUTO_SAVE_ORDER_KEY) || "[]");
-				const orderedSavedDocuments = documentOrder.map((id) => previouslySavedDocuments.find((autoSave) => autoSave.details.id === id)).filter((x) => x !== undefined) as AutoSaveDocument[];
+				const orderedSavedDocuments = documentOrder
+					.map((id) => previouslySavedDocuments.find((autoSave) => autoSave.details.id === id))
+					.filter((x) => x !== undefined) as TriggerIndexedDbWriteDocument[];
 
-				orderedSavedDocuments.forEach((doc: AutoSaveDocument) => {
-					editor.instance.open_auto_saved_document(BigInt(doc.details.id), doc.details.name, doc.details.is_saved, doc.document);
+				const currentDocumentVersion = getWasmInstance().graphite_version();
+				orderedSavedDocuments.forEach((doc: TriggerIndexedDbWriteDocument) => {
+					if (doc.version === currentDocumentVersion) {
+						editor.instance.open_auto_saved_document(BigInt(doc.details.id), doc.details.name, doc.details.is_saved, doc.document);
+					} else {
+						removeDocument(doc.details.id);
+					}
 				});
 				resolve(undefined);
 			};
 		});
 	};
 
-	const storeDocumentOrder = () => {
+	const storeDocumentOrder = (): void => {
 		// Make sure to store as string since JSON does not play nice with BigInt
 		const documentOrder = documents.state.documents.map((doc) => doc.id.toString());
 		window.localStorage.setItem(GRAPHITE_AUTO_SAVE_ORDER_KEY, JSON.stringify(documentOrder));
 	};
 
-	editor.dispatcher.subscribeJsMessage(AutoSaveDocument, async (autoSaveDocument) => {
+	const removeDocument = async (id: string): Promise<void> => {
+		const db = await databaseConnection;
+		const transaction = db.transaction(GRAPHITE_AUTO_SAVE_STORE, "readwrite");
+		transaction.objectStore(GRAPHITE_AUTO_SAVE_STORE).delete(id);
+		storeDocumentOrder();
+	};
+
+	editor.dispatcher.subscribeJsMessage(TriggerIndexedDbWriteDocument, async (autoSaveDocument) => {
 		const db = await databaseConnection;
 		const transaction = db.transaction(GRAPHITE_AUTO_SAVE_STORE, "readwrite");
 		transaction.objectStore(GRAPHITE_AUTO_SAVE_STORE).put(autoSaveDocument);
 		storeDocumentOrder();
 	});
 
-	editor.dispatcher.subscribeJsMessage(RemoveAutoSaveDocument, async (removeAutoSaveDocument) => {
-		const db = await databaseConnection;
-		const transaction = db.transaction(GRAPHITE_AUTO_SAVE_STORE, "readwrite");
-		transaction.objectStore(GRAPHITE_AUTO_SAVE_STORE).delete(removeAutoSaveDocument.document_id);
-		storeDocumentOrder();
+	editor.dispatcher.subscribeJsMessage(TriggerIndexedDbRemoveDocument, async (removeAutoSaveDocument) => {
+		removeDocument(removeAutoSaveDocument.document_id);
 	});
 
 	// On creation

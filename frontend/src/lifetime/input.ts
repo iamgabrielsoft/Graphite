@@ -1,44 +1,49 @@
 import { DialogState } from "@/state/dialog";
-import { FullscreenState } from "@/state/fullscreen";
 import { DocumentsState } from "@/state/documents";
+import { FullscreenState } from "@/state/fullscreen";
 import { EditorState } from "@/state/wasm-loader";
 
-type EventName = keyof HTMLElementEventMap | keyof WindowEventHandlersEventMap;
+type EventName = keyof HTMLElementEventMap | keyof WindowEventHandlersEventMap | "modifyinputfield";
 interface EventListenerTarget {
 	addEventListener: typeof window.addEventListener;
 	removeEventListener: typeof window.removeEventListener;
 }
 
+// eslint-disable-next-line @typescript-eslint/explicit-function-return-type
 export function createInputManager(editor: EditorState, container: HTMLElement, dialog: DialogState, document: DocumentsState, fullscreen: FullscreenState) {
 	// eslint-disable-next-line @typescript-eslint/no-explicit-any
 	const listeners: { target: EventListenerTarget; eventName: EventName; action: (event: any) => void; options?: boolean | AddEventListenerOptions }[] = [
-		{ target: window, eventName: "resize", action: () => onWindowResize(container) },
-		{ target: window, eventName: "beforeunload", action: (e) => onBeforeUnload(e) },
-		{ target: window.document, eventName: "contextmenu", action: (e) => e.preventDefault() },
-		{ target: window.document, eventName: "fullscreenchange", action: () => fullscreen.fullscreenModeChanged() },
-		{ target: window, eventName: "keyup", action: (e) => onKeyUp(e) },
-		{ target: window, eventName: "keydown", action: (e) => onKeyDown(e) },
-		{ target: window, eventName: "pointermove", action: (e) => onPointerMove(e) },
-		{ target: window, eventName: "pointerdown", action: (e) => onPointerDown(e) },
-		{ target: window, eventName: "pointerup", action: (e) => onPointerUp(e) },
-		{ target: window, eventName: "mousedown", action: (e) => onMouseDown(e) },
-		{ target: window, eventName: "wheel", action: (e) => onMouseScroll(e), options: { passive: false } },
+		{ target: window, eventName: "resize", action: (): void => onWindowResize(container) },
+		{ target: window, eventName: "beforeunload", action: (e: BeforeUnloadEvent): void => onBeforeUnload(e) },
+		{ target: window.document, eventName: "contextmenu", action: (e: MouseEvent): void => e.preventDefault() },
+		{ target: window.document, eventName: "fullscreenchange", action: (): void => fullscreen.fullscreenModeChanged() },
+		{ target: window, eventName: "keyup", action: (e: KeyboardEvent): void => onKeyUp(e) },
+		{ target: window, eventName: "keydown", action: (e: KeyboardEvent): void => onKeyDown(e) },
+		{ target: window, eventName: "pointermove", action: (e: PointerEvent): void => onPointerMove(e) },
+		{ target: window, eventName: "pointerdown", action: (e: PointerEvent): void => onPointerDown(e) },
+		{ target: window, eventName: "pointerup", action: (e: PointerEvent): void => onPointerUp(e) },
+		{ target: window, eventName: "dblclick", action: (e: PointerEvent): void => onDoubleClick(e) },
+		{ target: window, eventName: "mousedown", action: (e: MouseEvent): void => onMouseDown(e) },
+		{ target: window, eventName: "wheel", action: (e: WheelEvent): void => onMouseScroll(e), options: { passive: false } },
+		{ target: window, eventName: "modifyinputfield", action: (e: CustomEvent): void => onModifyInputField(e) },
 	];
 
 	let viewportPointerInteractionOngoing = false;
+	let textInput = undefined as undefined | HTMLDivElement;
 
 	// Keyboard events
 
 	const shouldRedirectKeyboardEventToBackend = (e: KeyboardEvent): boolean => {
-		// Don't redirect user input from text entry into HTML elements
-		const { target } = e;
-		if (target instanceof HTMLElement && (target.nodeName === "INPUT" || target.nodeName === "TEXTAREA" || target.isContentEditable)) return false;
-
 		// Don't redirect when a modal is covering the workspace
 		if (dialog.dialogIsVisible()) return false;
 
 		const key = getLatinKey(e);
 		if (!key) return false;
+
+		// Don't redirect user input from text entry into HTML elements
+		const { target } = e;
+		if (key !== "escape" && !(key === "enter" && e.ctrlKey) && target instanceof HTMLElement && (target.nodeName === "INPUT" || target.nodeName === "TEXTAREA" || target.isContentEditable))
+			return false;
 
 		// Don't redirect a fullscreen request
 		if (key === "f11" && e.type === "keydown" && !e.repeat) {
@@ -60,7 +65,7 @@ export function createInputManager(editor: EditorState, container: HTMLElement, 
 		return true;
 	};
 
-	const onKeyDown = (e: KeyboardEvent) => {
+	const onKeyDown = (e: KeyboardEvent): void => {
 		const key = getLatinKey(e);
 		if (!key) return;
 
@@ -82,7 +87,7 @@ export function createInputManager(editor: EditorState, container: HTMLElement, 
 		}
 	};
 
-	const onKeyUp = (e: KeyboardEvent) => {
+	const onKeyUp = (e: KeyboardEvent): void => {
 		const key = getLatinKey(e);
 		if (!key) return;
 
@@ -95,17 +100,18 @@ export function createInputManager(editor: EditorState, container: HTMLElement, 
 
 	// Pointer events
 
-	const onPointerMove = (e: PointerEvent) => {
+	const onPointerMove = (e: PointerEvent): void => {
 		if (!e.buttons) viewportPointerInteractionOngoing = false;
 
 		const modifiers = makeModifiersBitfield(e);
 		editor.instance.on_mouse_move(e.clientX, e.clientY, e.buttons, modifiers);
 	};
 
-	const onPointerDown = (e: PointerEvent) => {
+	const onPointerDown = (e: PointerEvent): void => {
 		const { target } = e;
-		const inCanvas = target instanceof Element && target.closest(".canvas");
-		const inDialog = target instanceof Element && target.closest(".dialog-modal .floating-menu-content");
+		const inCanvas = target instanceof Element && target.closest("[data-canvas]");
+		const inDialog = target instanceof Element && target.closest("[data-dialog-modal] [data-floating-menu-content]");
+		const inTextInput = target === textInput;
 
 		if (dialog.dialogIsVisible() && !inDialog) {
 			dialog.dismissDialog();
@@ -113,7 +119,9 @@ export function createInputManager(editor: EditorState, container: HTMLElement, 
 			e.stopPropagation();
 		}
 
-		if (inCanvas) viewportPointerInteractionOngoing = true;
+		if (textInput && !inTextInput) {
+			editor.instance.on_change_text(textInputCleanup(textInput.innerText));
+		} else if (inCanvas && !inTextInput) viewportPointerInteractionOngoing = true;
 
 		if (viewportPointerInteractionOngoing) {
 			const modifiers = makeModifiersBitfield(e);
@@ -121,26 +129,37 @@ export function createInputManager(editor: EditorState, container: HTMLElement, 
 		}
 	};
 
-	const onPointerUp = (e: PointerEvent) => {
+	const onPointerUp = (e: PointerEvent): void => {
 		if (!e.buttons) viewportPointerInteractionOngoing = false;
 
-		const modifiers = makeModifiersBitfield(e);
-		editor.instance.on_mouse_up(e.clientX, e.clientY, e.buttons, modifiers);
+		if (!textInput) {
+			const modifiers = makeModifiersBitfield(e);
+			editor.instance.on_mouse_up(e.clientX, e.clientY, e.buttons, modifiers);
+		}
+	};
+
+	const onDoubleClick = (e: PointerEvent): void => {
+		if (!e.buttons) viewportPointerInteractionOngoing = false;
+
+		if (!textInput) {
+			const modifiers = makeModifiersBitfield(e);
+			editor.instance.on_double_click(e.clientX, e.clientY, e.buttons, modifiers);
+		}
 	};
 
 	// Mouse events
 
-	const onMouseDown = (e: MouseEvent) => {
+	const onMouseDown = (e: MouseEvent): void => {
 		// Block middle mouse button auto-scroll mode (the circlar widget that appears and allows quick scrolling by moving the cursor above or below it)
 		// This has to be in `mousedown`, not `pointerdown`, to avoid blocking Vue's middle click detection on HTML elements
 		if (e.button === 1) e.preventDefault();
 	};
 
-	const onMouseScroll = (e: WheelEvent) => {
+	const onMouseScroll = (e: WheelEvent): void => {
 		const { target } = e;
-		const inCanvas = target instanceof Element && target.closest(".canvas");
+		const inCanvas = target instanceof Element && target.closest("[data-canvas]");
 
-		const horizontalScrollableElement = target instanceof Element && target.closest(".scrollable-x");
+		const horizontalScrollableElement = target instanceof Element && target.closest("[data-scrollable-x]");
 		if (horizontalScrollableElement && e.deltaY !== 0) {
 			horizontalScrollableElement.scrollTo(horizontalScrollableElement.scrollLeft + e.deltaY, 0);
 			return;
@@ -153,10 +172,14 @@ export function createInputManager(editor: EditorState, container: HTMLElement, 
 		}
 	};
 
+	const onModifyInputField = (e: CustomEvent): void => {
+		textInput = e.detail;
+	};
+
 	// Window events
 
-	const onWindowResize = (container: HTMLElement) => {
-		const viewports = Array.from(container.querySelectorAll(".canvas"));
+	const onWindowResize = (container: HTMLElement): void => {
+		const viewports = Array.from(container.querySelectorAll("[data-canvas]"));
 		const boundsOfViewports = viewports.map((canvas) => {
 			const bounds = canvas.getBoundingClientRect();
 			return [bounds.left, bounds.top, bounds.right, bounds.bottom];
@@ -168,7 +191,7 @@ export function createInputManager(editor: EditorState, container: HTMLElement, 
 		if (boundsOfViewports.length > 0) editor.instance.bounds_of_viewports(data);
 	};
 
-	const onBeforeUnload = (e: BeforeUnloadEvent) => {
+	const onBeforeUnload = (e: BeforeUnloadEvent): void => {
 		const activeDocument = document.state.documents[document.state.activeDocumentIndex];
 		if (!activeDocument.is_saved) editor.instance.trigger_auto_save(activeDocument.id);
 
@@ -187,11 +210,11 @@ export function createInputManager(editor: EditorState, container: HTMLElement, 
 
 	// Event bindings
 
-	const addListeners = () => {
+	const addListeners = (): void => {
 		listeners.forEach(({ target, eventName, action, options }) => target.addEventListener(eventName, action, options));
 	};
 
-	const removeListeners = () => {
+	const removeListeners = (): void => {
 		listeners.forEach(({ target, eventName, action }) => target.removeEventListener(eventName, action));
 	};
 
@@ -207,6 +230,12 @@ export type InputManager = ReturnType<typeof createInputManager>;
 
 export function makeModifiersBitfield(e: WheelEvent | PointerEvent | KeyboardEvent): number {
 	return Number(e.ctrlKey) | (Number(e.shiftKey) << 1) | (Number(e.altKey) << 2);
+}
+
+// Necessary because innerText puts an extra newline character at the end when the text is more than one line.
+export function textInputCleanup(text: string): string {
+	if (text[text.length - 1] === "\n") return text.slice(0, -1);
+	return text;
 }
 
 // This function is a naive, temporary solution to allow non-Latin keyboards to fall back on the physical QWERTY layout

@@ -1,25 +1,25 @@
 <template>
-	<div class="swatch-pair">
-		<div class="secondary swatch">
-			<button @click="clickSecondarySwatch" ref="secondaryButton" data-hover-menu-spawner></button>
-			<FloatingMenu :type="MenuType.Popover" :direction="MenuDirection.Right" horizontal ref="secondarySwatchFloatingMenu">
-				<ColorPicker @update:color="secondaryColorChanged" :color="secondaryColor" />
+	<LayoutCol class="swatch-pair">
+		<LayoutRow class="secondary swatch">
+			<button @click="() => clickSecondarySwatch()" ref="secondaryButton" data-hover-menu-spawner></button>
+			<FloatingMenu :type="'Popover'" :direction="'Right'" horizontal ref="secondarySwatchFloatingMenu">
+				<ColorPicker @update:color="(color: RGBA_) => secondaryColorChanged(color)" :color="secondaryColor" />
 			</FloatingMenu>
-		</div>
-		<div class="primary swatch">
-			<button @click="clickPrimarySwatch" ref="primaryButton" data-hover-menu-spawner></button>
-			<FloatingMenu :type="MenuType.Popover" :direction="MenuDirection.Right" horizontal ref="primarySwatchFloatingMenu">
-				<ColorPicker @update:color="primaryColorChanged" :color="primaryColor" />
+		</LayoutRow>
+		<LayoutRow class="primary swatch">
+			<button @click="() => clickPrimarySwatch()" ref="primaryButton" data-hover-menu-spawner></button>
+			<FloatingMenu :type="'Popover'" :direction="'Right'" horizontal ref="primarySwatchFloatingMenu">
+				<ColorPicker @update:color="(color: RGBA_) => primaryColorChanged(color)" :color="primaryColor" />
 			</FloatingMenu>
-		</div>
-	</div>
+		</LayoutRow>
+	</LayoutCol>
 </template>
 
 <style lang="scss">
 .swatch-pair {
-	display: flex;
 	// Reversed order of elements paired with `column-reverse` allows primary to overlap secondary without relying on `z-index`
 	flex-direction: column-reverse;
+	flex: 0 0 auto;
 
 	.swatch {
 		width: 28px;
@@ -68,82 +68,77 @@
 <script lang="ts">
 import { defineComponent } from "vue";
 
-import { rgbToDecimalRgb, RGB } from "@/utilities/color";
+import { type RGBA, UpdateWorkingColors } from "@/dispatcher/js-messages";
+import { rgbaToDecimalRgba } from "@/utilities/color";
 
+import LayoutCol from "@/components/layout/LayoutCol.vue";
+import LayoutRow from "@/components/layout/LayoutRow.vue";
 import ColorPicker from "@/components/widgets/floating-menus/ColorPicker.vue";
-import FloatingMenu, { MenuDirection, MenuType } from "@/components/widgets/floating-menus/FloatingMenu.vue";
-import { UpdateWorkingColors } from "@/dispatcher/js-messages";
+import FloatingMenu from "@/components/widgets/floating-menus/FloatingMenu.vue";
+
+// Satisfies Volar (https://github.com/johnsoncodehk/volar/issues/596)
+declare global {
+	type RGBA_ = RGBA;
+}
 
 export default defineComponent({
 	inject: ["editor"],
 	components: {
 		FloatingMenu,
 		ColorPicker,
+		LayoutRow,
+		LayoutCol,
 	},
-	props: {},
 	methods: {
 		clickPrimarySwatch() {
-			this.getRef<typeof FloatingMenu>("primarySwatchFloatingMenu").setOpen();
-			this.getRef<typeof FloatingMenu>("secondarySwatchFloatingMenu").setClosed();
+			(this.$refs.primarySwatchFloatingMenu as typeof FloatingMenu).setOpen();
+			(this.$refs.secondarySwatchFloatingMenu as typeof FloatingMenu).setClosed();
 		},
-
 		clickSecondarySwatch() {
-			this.getRef<typeof FloatingMenu>("secondarySwatchFloatingMenu").setOpen();
-			this.getRef<typeof FloatingMenu>("primarySwatchFloatingMenu").setClosed();
+			(this.$refs.secondarySwatchFloatingMenu as typeof FloatingMenu).setOpen();
+			(this.$refs.primarySwatchFloatingMenu as typeof FloatingMenu).setClosed();
 		},
-
-		getRef<T>(name: string) {
-			return this.$refs[name] as T;
-		},
-
-		primaryColorChanged(color: RGB) {
+		primaryColorChanged(color: RGBA) {
 			this.primaryColor = color;
 			this.updatePrimaryColor();
 		},
-
-		secondaryColorChanged(color: RGB) {
+		secondaryColorChanged(color: RGBA) {
 			this.secondaryColor = color;
 			this.updateSecondaryColor();
 		},
-
 		async updatePrimaryColor() {
 			let color = this.primaryColor;
-			const button = this.getRef<HTMLButtonElement>("primaryButton");
+			const button = this.$refs.primaryButton as HTMLButtonElement;
 			button.style.setProperty("--swatch-color", `rgba(${color.r}, ${color.g}, ${color.b}, ${color.a})`);
 
-			color = rgbToDecimalRgb(this.primaryColor);
+			color = rgbaToDecimalRgba(this.primaryColor);
 			this.editor.instance.update_primary_color(color.r, color.g, color.b, color.a);
 		},
-
 		async updateSecondaryColor() {
 			let color = this.secondaryColor;
-			const button = this.getRef<HTMLButtonElement>("secondaryButton");
+			const button = this.$refs.secondaryButton as HTMLButtonElement;
 			button.style.setProperty("--swatch-color", `rgba(${color.r}, ${color.g}, ${color.b}, ${color.a})`);
 
-			color = rgbToDecimalRgb(this.secondaryColor);
+			color = rgbaToDecimalRgba(this.secondaryColor);
 			this.editor.instance.update_secondary_color(color.r, color.g, color.b, color.a);
 		},
 	},
 	data() {
 		return {
-			MenuDirection,
-			MenuType,
-			primaryColor: { r: 0, g: 0, b: 0, a: 1 },
-			secondaryColor: { r: 255, g: 255, b: 255, a: 1 },
+			primaryColor: { r: 0, g: 0, b: 0, a: 1 } as RGBA,
+			secondaryColor: { r: 255, g: 255, b: 255, a: 1 } as RGBA,
 		};
 	},
 	mounted() {
 		this.editor.dispatcher.subscribeJsMessage(UpdateWorkingColors, (updateWorkingColors) => {
-			const { primary, secondary } = updateWorkingColors;
+			this.primaryColor = updateWorkingColors.primary.toRgba();
+			this.secondaryColor = updateWorkingColors.secondary.toRgba();
 
-			this.primaryColor = primary.toRgba();
-			this.secondaryColor = secondary.toRgba();
+			const primaryButton = this.$refs.primaryButton as HTMLButtonElement;
+			primaryButton.style.setProperty("--swatch-color", updateWorkingColors.primary.toRgbaCSS());
 
-			const primaryButton = this.getRef<HTMLButtonElement>("primaryButton");
-			primaryButton.style.setProperty("--swatch-color", primary.toRgbaCSS());
-
-			const secondaryButton = this.getRef<HTMLButtonElement>("secondaryButton");
-			secondaryButton.style.setProperty("--swatch-color", secondary.toRgbaCSS());
+			const secondaryButton = this.$refs.secondaryButton as HTMLButtonElement;
+			secondaryButton.style.setProperty("--swatch-color", updateWorkingColors.secondary.toRgbaCSS());
 		});
 
 		this.updatePrimaryColor();

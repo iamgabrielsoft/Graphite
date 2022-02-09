@@ -1,15 +1,14 @@
 <template>
-	<div class="popover-button">
+	<LayoutRow class="popover-button">
 		<IconButton :action="handleClick" :icon="icon" :size="16" data-hover-menu-spawner />
-		<FloatingMenu :type="MenuType.Popover" :direction="MenuDirection.Bottom" ref="floatingMenu">
+		<FloatingMenu :type="'Popover'" :direction="'Bottom'" ref="floatingMenu">
 			<slot></slot>
 		</FloatingMenu>
-	</div>
+	</LayoutRow>
 </template>
 
 <style lang="scss">
 .popover-button {
-	display: inline-block;
 	position: relative;
 	width: 16px;
 	height: 24px;
@@ -17,6 +16,7 @@
 
 	.floating-menu {
 		left: 50%;
+		bottom: 0;
 	}
 
 	.icon-button {
@@ -47,24 +47,23 @@
 </style>
 
 <script lang="ts">
-import { defineComponent } from "vue";
+import { defineComponent, PropType } from "vue";
 
+import { PopoverButtonIcon } from "@/utilities/widgets";
+
+import LayoutRow from "@/components/layout/LayoutRow.vue";
 import IconButton from "@/components/widgets/buttons/IconButton.vue";
-import FloatingMenu, { MenuDirection, MenuType } from "@/components/widgets/floating-menus/FloatingMenu.vue";
-
-export enum PopoverButtonIcon {
-	"DropdownArrow" = "DropdownArrow",
-	"VerticalEllipsis" = "VerticalEllipsis",
-}
+import FloatingMenu from "@/components/widgets/floating-menus/FloatingMenu.vue";
 
 export default defineComponent({
 	components: {
 		FloatingMenu,
 		IconButton,
+		LayoutRow,
 	},
 	props: {
-		action: { type: Function, required: false },
-		icon: { type: String, default: PopoverButtonIcon.DropdownArrow },
+		action: { type: Function as PropType<() => void>, required: false },
+		icon: { type: String as PropType<PopoverButtonIcon>, default: "DropdownArrow" },
 	},
 	methods: {
 		handleClick() {
@@ -72,12 +71,6 @@ export default defineComponent({
 
 			if (this.action) this.action();
 		},
-	},
-	data() {
-		return {
-			MenuDirection,
-			MenuType,
-		};
 	},
 });
 </script>

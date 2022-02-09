@@ -1,21 +1,21 @@
 <template>
-	<div class="dropdown-input">
-		<div class="dropdown-box" :class="{ disabled }" :style="{ minWidth: `${minWidth}px`, disabled: 'disabled' }" @click="clickDropdownBox" data-hover-menu-spawner>
-			<IconLabel :class="'dropdown-icon'" :icon="activeEntry.icon" v-if="activeEntry.icon" />
+	<LayoutRow class="dropdown-input">
+		<LayoutRow class="dropdown-box" :class="{ disabled }" :style="{ minWidth: `${minWidth}px` }" @click="() => clickDropdownBox()" data-hover-menu-spawner>
+			<IconLabel class="dropdown-icon" :icon="activeEntry.icon" v-if="activeEntry.icon" />
 			<span>{{ activeEntry.label }}</span>
-			<IconLabel :class="'dropdown-arrow'" :icon="'DropdownArrow'" />
-		</div>
+			<IconLabel class="dropdown-arrow" :icon="'DropdownArrow'" />
+		</LayoutRow>
 		<MenuList
-			v-model:active-entry="activeEntry"
-			@update:activeEntry="activeEntryChanged"
-			@width-changed="onWidthChanged"
+			v-model:activeEntry="activeEntry"
+			@update:activeEntry="(newActiveEntry: typeof MENU_LIST_ENTRY) => activeEntryChanged(newActiveEntry)"
+			@widthChanged="(newWidth: number) => onWidthChanged(newWidth)"
 			:menuEntries="menuEntries"
-			:direction="MenuDirection.Bottom"
+			:direction="'Bottom'"
 			:drawIcon="drawIcon"
-			:scrollable="true"
+			:scrollableY="true"
 			ref="menuList"
 		/>
-	</div>
+	</LayoutRow>
 </template>
 
 <style lang="scss">
@@ -23,7 +23,6 @@
 	position: relative;
 
 	.dropdown-box {
-		display: flex;
 		align-items: center;
 		white-space: nowrap;
 		background: var(--color-1-nearblack);
@@ -36,7 +35,6 @@
 		}
 
 		span {
-			display: inline-block;
 			margin: 0;
 			margin-left: 8px;
 			flex: 1 1 100%;
@@ -90,21 +88,25 @@
 <script lang="ts">
 import { defineComponent, PropType } from "vue";
 
-import IconLabel from "@/components/widgets/labels/IconLabel.vue";
+import LayoutRow from "@/components/layout/LayoutRow.vue";
 import MenuList, { MenuListEntry, SectionsOfMenuListEntries } from "@/components/widgets/floating-menus/MenuList.vue";
-import { MenuDirection } from "@/components/widgets/floating-menus/FloatingMenu.vue";
+import IconLabel from "@/components/widgets/labels/IconLabel.vue";
+
+// Satisfies Volar (https://github.com/johnsoncodehk/volar/issues/596)
+declare global {
+	const MENU_LIST_ENTRY: MenuListEntry;
+}
 
 export default defineComponent({
 	props: {
 		menuEntries: { type: Array as PropType<SectionsOfMenuListEntries>, required: true },
-		selectedIndex: { type: Number, required: true },
-		drawIcon: { type: Boolean, default: false },
-		disabled: { type: Boolean, default: false },
+		selectedIndex: { type: Number as PropType<number>, required: true },
+		drawIcon: { type: Boolean as PropType<boolean>, default: false },
+		disabled: { type: Boolean as PropType<boolean>, default: false },
 	},
 	data() {
 		return {
 			activeEntry: this.menuEntries.flat()[this.selectedIndex],
-			MenuDirection,
 			minWidth: 0,
 		};
 	},
@@ -135,6 +137,7 @@ export default defineComponent({
 	components: {
 		IconLabel,
 		MenuList,
+		LayoutRow,
 	},
 });
 </script>

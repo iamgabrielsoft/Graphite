@@ -1,5 +1,5 @@
 <template>
-	<div class="number-input" :class="{ disabled }">
+	<LayoutRow class="number-input" :class="{ disabled }">
 		<input
 			:class="{ 'has-label': label }"
 			:id="`number-input-${id}`"
@@ -12,9 +12,9 @@
 			:disabled="disabled"
 		/>
 		<label v-if="label" :for="`number-input-${id}`">{{ label }}</label>
-		<button v-if="!Number.isNaN(value)" class="arrow left" @click="onIncrement(IncrementDirection.Decrease)"></button>
-		<button v-if="!Number.isNaN(value)" class="arrow right" @click="onIncrement(IncrementDirection.Increase)"></button>
-	</div>
+		<button v-if="!Number.isNaN(value)" class="arrow left" @click="onIncrement('Decrease')"></button>
+		<button v-if="!Number.isNaN(value)" class="arrow right" @click="onIncrement('Increase')"></button>
+	</LayoutRow>
 </template>
 
 <style lang="scss">
@@ -25,7 +25,6 @@
 	border-radius: 2px;
 	background: var(--color-1-nearblack);
 	overflow: hidden;
-	display: flex;
 	flex-direction: row-reverse;
 
 	label {
@@ -53,18 +52,12 @@
 		border: none;
 		background: none;
 		color: var(--color-e-nearwhite);
-		font-size: inherit;
-		font-family: inherit;
 		text-align: center;
 
 		&:not(:focus).has-label {
 			text-align: right;
 			margin-left: 0;
 			margin-right: 8px;
-		}
-
-		&::selection {
-			background: var(--color-accent);
 		}
 
 		&:focus {
@@ -152,40 +145,30 @@
 <script lang="ts">
 import { defineComponent, PropType } from "vue";
 
-export enum IncrementBehavior {
-	Add = "Add",
-	Multiply = "Multiply",
-	Callback = "Callback",
-	None = "None",
-}
+import { IncrementBehavior, IncrementDirection } from "@/utilities/widgets";
 
-export enum IncrementDirection {
-	Decrease = "Decrease",
-	Increase = "Increase",
-}
+import LayoutRow from "@/components/layout/LayoutRow.vue";
 
 export default defineComponent({
-	components: {},
 	props: {
-		value: { type: Number, required: true },
-		min: { type: Number, required: false },
-		max: { type: Number, required: false },
-		incrementBehavior: { type: String as PropType<IncrementBehavior>, default: IncrementBehavior.Add },
-		incrementFactor: { type: Number, default: 1 },
-		incrementCallbackIncrease: { type: Function, required: false },
-		incrementCallbackDecrease: { type: Function, required: false },
-		isInteger: { type: Boolean, default: false },
-		unit: { type: String, default: "" },
-		unitIsHiddenWhenEditing: { type: Boolean, default: true },
-		displayDecimalPlaces: { type: Number, default: 3 },
-		label: { type: String, required: false },
-		disabled: { type: Boolean, default: false },
+		value: { type: Number as PropType<number>, required: true },
+		min: { type: Number as PropType<number>, required: false },
+		max: { type: Number as PropType<number>, required: false },
+		incrementBehavior: { type: String as PropType<IncrementBehavior>, default: "Add" },
+		incrementFactor: { type: Number as PropType<number>, default: 1 },
+		incrementCallbackIncrease: { type: Function as PropType<() => void>, required: false },
+		incrementCallbackDecrease: { type: Function as PropType<() => void>, required: false },
+		isInteger: { type: Boolean as PropType<boolean>, default: false },
+		unit: { type: String as PropType<string>, default: "" },
+		unitIsHiddenWhenEditing: { type: Boolean as PropType<boolean>, default: true },
+		displayDecimalPlaces: { type: Number as PropType<number>, default: 3 },
+		label: { type: String as PropType<string>, required: false },
+		disabled: { type: Boolean as PropType<boolean>, default: false },
 	},
 	data() {
 		return {
-			text: `${this.value}${this.unit}`,
+			text: this.generateText(this.value),
 			editing: false,
-			IncrementDirection,
 			id: `${Math.random()}`.substring(2),
 		};
 	},
@@ -194,7 +177,6 @@ export default defineComponent({
 			if (Number.isNaN(this.value)) this.text = "";
 			else if (this.unitIsHiddenWhenEditing) this.text = `${this.value}`;
 			else this.text = `${this.value}${this.unit}`;
-
 			this.editing = true;
 			const inputElement = this.$refs.input as HTMLInputElement;
 			// Setting the value directly is required to make `inputElement.select()` work
@@ -206,38 +188,34 @@ export default defineComponent({
 		onTextChanged() {
 			// The `inputElement.blur()` call at the bottom of this function causes itself to be run again, so this check skips a second run
 			if (!this.editing) return;
-
 			const newValue = parseFloat(this.text);
 			this.updateValue(newValue);
-
 			this.editing = false;
 			const inputElement = this.$refs.input as HTMLElement;
 			inputElement.blur();
 		},
 		onCancelTextChange() {
 			this.updateValue(NaN);
-
 			this.editing = false;
 			const inputElement = this.$refs.input as HTMLElement;
 			inputElement.blur();
 		},
 		onIncrement(direction: IncrementDirection) {
 			if (Number.isNaN(this.value)) return;
-
 			switch (this.incrementBehavior) {
-				case IncrementBehavior.Add: {
-					const directionAddend = direction === IncrementDirection.Increase ? this.incrementFactor : -this.incrementFactor;
+				case "Add": {
+					const directionAddend = direction === "Increase" ? this.incrementFactor : -this.incrementFactor;
 					this.updateValue(this.value + directionAddend);
 					break;
 				}
-				case IncrementBehavior.Multiply: {
-					const directionMultiplier = direction === IncrementDirection.Increase ? this.incrementFactor : 1 / this.incrementFactor;
+				case "Multiply": {
+					const directionMultiplier = direction === "Increase" ? this.incrementFactor : 1 / this.incrementFactor;
 					this.updateValue(this.value * directionMultiplier);
 					break;
 				}
-				case IncrementBehavior.Callback: {
-					if (direction === IncrementDirection.Increase && this.incrementCallbackIncrease) this.incrementCallbackIncrease();
-					if (direction === IncrementDirection.Decrease && this.incrementCallbackDecrease) this.incrementCallbackDecrease();
+				case "Callback": {
+					if (direction === "Increase" && this.incrementCallbackIncrease) this.incrementCallbackIncrease();
+					if (direction === "Decrease" && this.incrementCallbackDecrease) this.incrementCallbackDecrease();
 					break;
 				}
 				default:
@@ -246,19 +224,23 @@ export default defineComponent({
 		},
 		updateValue(newValue: number) {
 			let sanitized = newValue;
-
 			const invalid = Number.isNaN(newValue);
 			if (invalid) sanitized = this.value;
-
 			if (this.isInteger) sanitized = Math.round(sanitized);
 			if (typeof this.min === "number" && !Number.isNaN(this.min)) sanitized = Math.max(sanitized, this.min);
 			if (typeof this.max === "number" && !Number.isNaN(this.max)) sanitized = Math.min(sanitized, this.max);
-
 			if (!invalid) this.$emit("update:value", sanitized);
-
-			const roundingPower = 10 ** this.displayDecimalPlaces;
-			const displayValue = Math.round(sanitized * roundingPower) / roundingPower;
-			this.text = `${displayValue}${this.unit}`;
+			this.text = this.generateText(sanitized);
+		},
+		generateText(value: number): string {
+			// Find the amount of digits on the left side of the decimal
+			// 10.25 == 2
+			// 1.23 == 1
+			// 0.23 == 0 (Reason for the slightly more complicated code)
+			const leftSideDigits = Math.max(Math.floor(value).toString().length, 0) * Math.sign(value);
+			const roundingPower = 10 ** Math.max(this.displayDecimalPlaces - leftSideDigits, 0);
+			const displayValue = Math.round(value * roundingPower) / roundingPower;
+			return `${displayValue}${this.unit}`;
 		},
 	},
 	watch: {
@@ -268,14 +250,11 @@ export default defineComponent({
 				this.text = "-";
 				return;
 			}
-
+			// The simple `clamp()` function can't be used here since `undefined` values need to be boundless
 			let sanitized = newValue;
 			if (typeof this.min === "number") sanitized = Math.max(sanitized, this.min);
 			if (typeof this.max === "number") sanitized = Math.min(sanitized, this.max);
-
-			const roundingPower = 10 ** this.displayDecimalPlaces;
-			const displayValue = Math.round(sanitized * roundingPower) / roundingPower;
-			this.text = `${displayValue}${this.unit}`;
+			this.text = this.generateText(sanitized);
 		},
 	},
 	mounted() {
@@ -288,5 +267,6 @@ export default defineComponent({
 		inputElement.removeEventListener("focus", this.onTextFocused);
 		inputElement.removeEventListener("blur", this.onTextChanged);
 	},
+	components: { LayoutRow },
 });
 </script>

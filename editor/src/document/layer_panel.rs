@@ -1,10 +1,12 @@
-use graphene::layers::{style::ViewMode, BlendMode, Layer, LayerData, LayerDataType};
+use graphene::layers::blend_mode::BlendMode;
+use graphene::layers::layer_info::{Layer, LayerData, LayerDataType};
+use graphene::layers::style::ViewMode;
 use graphene::LayerId;
 
-use std::fmt;
-
 use glam::{DAffine2, DVec2};
-use serde::{ser::SerializeStruct, Deserialize, Serialize};
+use serde::ser::SerializeStruct;
+use serde::{Deserialize, Serialize};
+use std::fmt;
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Copy)]
 pub struct LayerMetadata {
@@ -19,8 +21,7 @@ impl LayerMetadata {
 }
 
 pub fn layer_panel_entry(layer_metadata: &LayerMetadata, transform: DAffine2, layer: &Layer, path: Vec<LayerId>) -> LayerPanelEntry {
-	let layer_type: LayerDataTypeDiscriminant = (&layer.data).into();
-	let name = layer.name.clone().unwrap_or_else(|| format!("Unnamed {}", layer_type));
+	let name = layer.name.clone().unwrap_or_else(|| String::from(""));
 	let arr = layer.data.bounding_box(transform).unwrap_or([DVec2::ZERO, DVec2::ZERO]);
 	let arr = arr.iter().map(|x| (*x).into()).collect::<Vec<(f64, f64)>>();
 
@@ -96,6 +97,7 @@ pub struct LayerPanelEntry {
 pub enum LayerDataTypeDiscriminant {
 	Folder,
 	Shape,
+	Text,
 }
 
 impl fmt::Display for LayerDataTypeDiscriminant {
@@ -103,6 +105,7 @@ impl fmt::Display for LayerDataTypeDiscriminant {
 		let name = match self {
 			LayerDataTypeDiscriminant::Folder => "Folder",
 			LayerDataTypeDiscriminant::Shape => "Shape",
+			LayerDataTypeDiscriminant::Text => "Text",
 		};
 
 		formatter.write_str(name)
@@ -112,9 +115,11 @@ impl fmt::Display for LayerDataTypeDiscriminant {
 impl From<&LayerDataType> for LayerDataTypeDiscriminant {
 	fn from(data: &LayerDataType) -> Self {
 		use LayerDataType::*;
+
 		match data {
 			Folder(_) => LayerDataTypeDiscriminant::Folder,
 			Shape(_) => LayerDataTypeDiscriminant::Shape,
+			Text(_) => LayerDataTypeDiscriminant::Text,
 		}
 	}
 }
