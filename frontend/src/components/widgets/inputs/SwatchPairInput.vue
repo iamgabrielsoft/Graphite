@@ -2,15 +2,11 @@
 	<LayoutCol class="swatch-pair">
 		<LayoutRow class="secondary swatch">
 			<button @click="() => clickSecondarySwatch()" ref="secondaryButton" data-hover-menu-spawner></button>
-			<FloatingMenu :type="'Popover'" :direction="'Right'" horizontal ref="secondarySwatchFloatingMenu">
-				<ColorPicker @update:color="(color: RGBA_) => secondaryColorChanged(color)" :color="secondaryColor" />
-			</FloatingMenu>
+			<ColorPicker @update:color="(color: RGBA_) => secondaryColorChanged(color)" :color="secondaryColor" />
 		</LayoutRow>
 		<LayoutRow class="primary swatch">
 			<button @click="() => clickPrimarySwatch()" ref="primaryButton" data-hover-menu-spawner></button>
-			<FloatingMenu :type="'Popover'" :direction="'Right'" horizontal ref="primarySwatchFloatingMenu">
-				<ColorPicker @update:color="(color: RGBA_) => primaryColorChanged(color)" :color="primaryColor" />
-			</FloatingMenu>
+			<ColorPicker @update:color="(color: RGBA_) => primaryColorChanged(color)" :color="primaryColor" />
 		</LayoutRow>
 	</LayoutCol>
 </template>
@@ -84,19 +80,18 @@ declare global {
 export default defineComponent({
 	inject: ["editor"],
 	components: {
-		FloatingMenu,
 		ColorPicker,
 		LayoutRow,
 		LayoutCol,
 	},
 	methods: {
 		clickPrimarySwatch() {
-			(this.$refs.primarySwatchFloatingMenu as typeof FloatingMenu).setOpen();
-			(this.$refs.secondarySwatchFloatingMenu as typeof FloatingMenu).setClosed();
+			((this.$refs.primarySwatchFloatingMenu as typeof ColorPicker).$refs.floatingMenu as typeof FloatingMenu).setOpen();
+			((this.$refs.secondarySwatchFloatingMenu as typeof ColorPicker).$refs.floatingMenu as typeof FloatingMenu).setClosed();
 		},
 		clickSecondarySwatch() {
-			(this.$refs.secondarySwatchFloatingMenu as typeof FloatingMenu).setOpen();
-			(this.$refs.primarySwatchFloatingMenu as typeof FloatingMenu).setClosed();
+			((this.$refs.secondarySwatchFloatingMenu as typeof ColorPicker).$refs.floatingMenu as typeof FloatingMenu).setOpen();
+			((this.$refs.primarySwatchFloatingMenu as typeof ColorPicker).$refs.floatingMenu as typeof FloatingMenu).setClosed();
 		},
 		primaryColorChanged(color: RGBA) {
 			this.primaryColor = color;

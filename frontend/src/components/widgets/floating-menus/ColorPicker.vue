@@ -1,15 +1,17 @@
 <template>
-	<LayoutRow class="color-picker">
-		<LayoutCol class="saturation-picker" ref="saturationPicker" @pointerdown="(e: PointerEvent) => onPointerDown(e)">
-			<div ref="saturationCursor" class="selection-circle"></div>
-		</LayoutCol>
-		<LayoutCol class="hue-picker" ref="huePicker" @pointerdown="(e: PointerEvent) => onPointerDown(e)">
-			<div ref="hueCursor" class="selection-pincers"></div>
-		</LayoutCol>
-		<LayoutCol class="opacity-picker" ref="opacityPicker" @pointerdown="(e: PointerEvent) => onPointerDown(e)">
-			<div ref="opacityCursor" class="selection-pincers"></div>
-		</LayoutCol>
-	</LayoutRow>
+	<FloatingMenu :type="'Popover'" :direction="'Right'" horizontal ref="floatingMenu">
+		<LayoutRow class="color-picker">
+			<LayoutCol class="saturation-picker" ref="saturationPicker" @pointerdown="(e: PointerEvent) => onPointerDown(e)">
+				<div ref="saturationCursor" class="selection-circle"></div>
+			</LayoutCol>
+			<LayoutCol class="hue-picker" ref="huePicker" @pointerdown="(e: PointerEvent) => onPointerDown(e)">
+				<div ref="hueCursor" class="selection-pincers"></div>
+			</LayoutCol>
+			<LayoutCol class="opacity-picker" ref="opacityPicker" @pointerdown="(e: PointerEvent) => onPointerDown(e)">
+				<div ref="opacityCursor" class="selection-pincers"></div>
+			</LayoutCol>
+		</LayoutRow>
+	</FloatingMenu>
 </template>
 
 <style lang="scss">
@@ -124,6 +126,7 @@ import { clamp } from "@/utilities/math";
 
 import LayoutCol from "@/components/layout/LayoutCol.vue";
 import LayoutRow from "@/components/layout/LayoutRow.vue";
+import FloatingMenu from "@/components/widgets/floating-menus/FloatingMenu.vue";
 
 type ColorPickerState = "Idle" | "MoveHue" | "MoveOpacity" | "MoveSaturation";
 
@@ -300,6 +303,7 @@ export default defineComponent({
 	components: {
 		LayoutRow,
 		LayoutCol,
+		FloatingMenu,
 	},
 });
 </script>

@@ -7,6 +7,9 @@
 				<Separator :type="'Section'" />
 
 				<WidgetLayout :layout="toolOptionsLayout" />
+
+				<Separator :type="'Section'" :direction="'Horizontal'" />
+				<!-- <ColorInput :value="'ff0000'" /> -->
 			</LayoutRow>
 
 			<LayoutRow class="spacer"></LayoutRow>
@@ -251,6 +254,7 @@ import LayoutCol from "@/components/layout/LayoutCol.vue";
 import LayoutRow from "@/components/layout/LayoutRow.vue";
 import IconButton from "@/components/widgets/buttons/IconButton.vue";
 import { SectionsOfMenuListEntries } from "@/components/widgets/floating-menus/MenuList.vue";
+import ColorInput from "@/components/widgets/inputs/ColorInput.vue";
 import DropdownInput from "@/components/widgets/inputs/DropdownInput.vue";
 import { RadioEntries } from "@/components/widgets/inputs/RadioInput.vue";
 import ShelfItemInput from "@/components/widgets/inputs/ShelfItemInput.vue";
@@ -480,6 +484,7 @@ export default defineComponent({
 		CanvasRuler,
 		IconButton,
 		DropdownInput,
+		ColorInput,
 		WidgetLayout,
 	},
 });
