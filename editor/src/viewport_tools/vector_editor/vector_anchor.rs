@@ -180,6 +180,28 @@ impl VectorAnchor {
 		}
 	}
 
+	/// Delete the anchor, which includes the handles
+	pub fn delete(&mut self, responses: &mut VecDeque<Message>, path_elements: &mut Vec<PathEl>) {
+		if let Some(point) = &self.points[ControlPointType::Anchor] {
+			path_elements.remove(point.kurbo_element_id);
+		}
+		self.points[ControlPointType::Handle1] = None;
+		self.points[ControlPointType::Handle2] = None;
+		self.remove_overlays(responses);
+	}
+
+	pub fn set_anchor_element_id(&mut self, new_element_id: usize) {
+		if let Some(point) = &mut self.points[ControlPointType::Anchor] {
+			point.kurbo_element_id = new_element_id;
+		}
+		if let Some(handle) = &mut self.points[ControlPointType::Handle1] {
+			handle.kurbo_element_id = new_element_id;
+		}
+		if let Some(handle) = &mut self.points[ControlPointType::Handle2] {
+			handle.kurbo_element_id = new_element_id + 1;
+		}
+	}
+
 	/// Returns true is any points in this anchor are selected
 	pub fn is_selected(&self) -> bool {
 		self.points.iter().flatten().any(|pnt| pnt.is_selected)

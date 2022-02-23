@@ -36,6 +36,7 @@ pub enum PathToolMessage {
 	// Tool-specific messages
 	DragStart {
 		add_to_selection: Key,
+		delete_key: Key,
 	},
 	DragStop,
 	PointerMove {
@@ -138,12 +139,19 @@ impl Fsm for PathToolFsmState {
 					self
 				}
 				// Mouse down
-				(_, DragStart { add_to_selection }) => {
+				(_, DragStart { add_to_selection, delete_key }) => {
 					let add_to_selection = input.keyboard.get(add_to_selection as usize);
+					let delete_on_ctrl = input.keyboard.get(delete_key as usize);
 
 					// Select the first point within the threshold (in pixels)
 					if data.shape_editor.select_point(input.mouse.position, SELECTION_THRESHOLD, add_to_selection, responses) {
 						responses.push_back(DocumentMessage::StartTransaction.into());
+
+						if delete_on_ctrl {
+							data.shape_editor.delete_selected_points(responses);
+							return Ready;
+						}
+
 						data.snap_handler.start_snap(document, document.bounding_boxes(None, None), true, true);
 						let snap_points = data
 							.shape_editor

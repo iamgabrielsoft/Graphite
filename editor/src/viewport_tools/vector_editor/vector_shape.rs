@@ -145,6 +145,30 @@ impl VectorShape {
 		);
 	}
 
+	pub fn delete_selected(&mut self, responses: &mut VecDeque<Message>) {
+		let mut edited_bez_path = self.elements.clone();
+		for anchor in self.selected_anchors_mut() {
+			anchor.delete(responses, &mut edited_bez_path);
+		}
+		self.bez_path = edited_bez_path.clone().into_iter().collect();
+
+		// reinitialize the shape
+		self.remove_overlays(responses);
+		self.shape_overlay = Some(self.create_shape_outline_overlay(responses));
+		self.elements = edited_bez_path;
+		self.anchors = self.create_anchors_from_kurbo(responses);
+
+		// TODO: This is a hack to allow Text to work. The shape isn't a path until this message is sent (it appears)
+		responses.push_back(
+			Operation::SetShapePathInViewport {
+				path: self.layer_path.clone(),
+				bez_path: self.elements.clone().into_iter().collect(),
+				transform: self.transform.to_cols_array(),
+			}
+			.into(),
+		);
+	}
+
 	/// Update the anchors and segments to match the kurbo shape
 	/// Should be called whenever the kurbo shape changes
 	pub fn update_shape(&mut self, document: &DocumentMessageHandler, responses: &mut VecDeque<Message>) {
