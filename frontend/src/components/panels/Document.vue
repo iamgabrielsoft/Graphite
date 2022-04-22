@@ -382,8 +382,8 @@ export default defineComponent({
 		makeCanvasSvgShadowDOM() {
 			const createSVG = (className: string): SVGSVGElement => {
 				const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
-				svg.setAttribute("xmlns", "http://www.w3.org/2000/svg");
-				svg.setAttribute("xmlns:xlink", "http://www.w3.org/1999/xlink");
+				svg.setAttributeNS("http://www.w3.org/2000/svg", "xmlns", "http://www.w3.org/2000/svg");
+				svg.setAttributeNS("http://www.w3.org/2000/svg", "xmlns:xlink", "http://www.w3.org/1999/xlink");
 				svg.classList.add(className);
 				return svg;
 			};
